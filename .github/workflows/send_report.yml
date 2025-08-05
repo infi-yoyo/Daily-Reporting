@@ -2,7 +2,7 @@ name: Daily Wakefit Report
 
 on:
   schedule:
-    # Runs daily at 3:00 PM UTC (adjust timezone as needed)
+    # Runs daily at 9:30 AM UTC (3:00 PM IST)
     - cron: '30 9 * * *'
   workflow_dispatch:  # Allows manual triggering
 

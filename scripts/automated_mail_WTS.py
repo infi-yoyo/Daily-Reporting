@@ -14,6 +14,7 @@ import os
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
 import sys
+import json
 from pathlib import Path
 
 
@@ -37,33 +38,51 @@ def service_gmail_api():
     creds = None
     token_path = 'token.json'
     
-    # Check if token exists
+    # Try to load existing token
     if os.path.exists(token_path):
-        creds = Credentials.from_authorized_user_file(token_path, SCOPES)
+        try:
+            creds = Credentials.from_authorized_user_file(token_path, SCOPES)
+        except Exception as e:
+            print(f"Error loading token: {e}")
     
+    # Refresh credentials if needed
+    if creds and creds.expired and creds.refresh_token:
+        try:
+            creds.refresh(Request())
+            # Save refreshed credentials
+            with open(token_path, 'w') as token:
+                token.write(creds.to_json())
+        except Exception as e:
+            print(f"Token refresh failed: {e}")
+            creds = None
+    
+    # If no valid credentials, try to get new ones
     if not creds or not creds.valid:
-        if creds and creds.expired and creds.refresh_token:
-            try:
-                creds.refresh(Request())
-            except Exception as e:
-                print(f"Token refresh failed: {e}")
-                creds = None
-        
-        if not creds:
-            # Get credentials file path
-            try:
-                creds_file_path = get_credentials_path()
-                flow = InstalledAppFlow.from_client_secrets_file(creds_file_path, SCOPES)
-                # For GitHub Actions, we need to handle this differently
-                if 'GITHUB_ACTIONS' in os.environ:
-                    # Use service account or handle auth differently in CI
-                    print("Running in GitHub Actions - implement service account auth")
-                    # You might need to switch to service account authentication
-                else:
-                    creds = flow.run_local_server(port=8080, access_type='offline', prompt='consent')
-            except Exception as e:
-                print(f"Authentication failed: {e}")
+        try:
+            # Check if credentials file exists and is valid
+            if not os.path.exists('credentials.json'):
+                print("Error: credentials.json not found")
                 sys.exit(1)
+                
+            with open('credentials.json', 'r') as f:
+                cred_data = json.load(f)
+                
+            flow = InstalledAppFlow.from_client_secrets_file('credentials.json', SCOPES)
+            
+            # For GitHub Actions, we can't do interactive auth
+            if 'GITHUB_ACTIONS' in os.environ:
+                print("Error: Cannot perform interactive authentication in GitHub Actions")
+                print("Please generate token.json locally and add it as a secret")
+                sys.exit(1)
+            else:
+                creds = flow.run_local_server(port=8080, access_type='offline', prompt='consent')
+                
+        except json.JSONDecodeError as e:
+            print(f"Invalid JSON in credentials file: {e}")
+            sys.exit(1)
+        except Exception as e:
+            print(f"Authentication failed: {e}")
+            sys.exit(1)
         
         # Save credentials for next run
         if creds:
@@ -74,7 +93,7 @@ def service_gmail_api():
         service = build('gmail', 'v1', credentials=creds)
         return service
     except HttpError as error:
-        print(f'An error occurred: {error}')
+        print(f'An error occurred building Gmail service: {error}')
         sys.exit(1)
 
 service = service_gmail_api()

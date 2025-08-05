@@ -41,18 +41,11 @@ jobs:
           echo "ERROR: GOOGLE_CREDENTIALS secret is empty or not set"
           exit 1
         fi
-        echo "Creating credentials.json file..."
-        echo '${{ secrets.GOOGLE_CREDENTIALS }}' > credentials.json
-        echo "Verifying credentials.json was created..."
-        if [ -f "credentials.json" ]; then
-          echo "✓ credentials.json file created successfully"
-          echo "File size: $(wc -c < credentials.json) bytes"
-        else
-          echo "✗ Failed to create credentials.json"
-          exit 1
-        fi
-        echo "Validating JSON format..."
-        python -c "import json; json.load(open('credentials.json'))" || (echo "Invalid JSON format in credentials" && exit 1)
+        echo "Creating scripts/credentials.json file..."
+        echo '${{ secrets.GOOGLE_CREDENTIALS }}' > scripts/credentials.json
+        echo "✓ credentials.json file created successfully in scripts/"
+        python -c "import json; json.load(open('scripts/credentials.json'))" || (echo 'Invalid JSON format' && exit 1)
+
     
     - name: Create token file if exists
       run: |

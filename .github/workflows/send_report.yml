@@ -1,45 +1,59 @@
-name: Daily Gmail Report Sender
+name: Daily Wakefit Report
 
 on:
   schedule:
-    - cron: '30 9 * * *'  # 10:00 AM IST daily
-  workflow_dispatch:
+    # Runs daily at 3:00 PM UTC (adjust timezone as needed)
+    - cron: '30 9 * * *'
+  workflow_dispatch:  # Allows manual triggering
 
 jobs:
-  send-gmail-report:
+  send-daily-report:
     runs-on: ubuntu-latest
-
+    
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
-
-      - name: Install PostgreSQL client
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libpq-dev
-
-      - name: Install Python dependencies
-        run: |
-          pip install --upgrade pip
-          pip install pandas jinja2 psycopg2-binary \
-                      google-auth google-auth-oauthlib google-api-python-client
-
-      - name: Inject credentials files from GitHub secrets
-        run: |
-          echo "${{ secrets.GMAIL_TOKEN }}" > token.json
-          echo "${{ secrets.GMAIL_CREDS }}" > credentials.json
-
-      - name: Run Gmail reporting script
-        env:
-          DB_HOST: ${{ secrets.DB_HOST }}
-          DB_PORT: ${{ secrets.DB_PORT }}
-          DB_NAME: ${{ secrets.DB_NAME }}
-          DB_USER: ${{ secrets.DB_USER }}
-          DB_PASS: ${{ secrets.DB_PASS }}
-        run: |
-          python automated_mail_WTS.py
+    - name: Checkout repository
+      uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.9'
+    
+    - name: Cache pip dependencies
+      uses: actions/cache@v3
+      with:
+        path: ~/.cache/pip
+        key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
+        restore-keys: |
+          ${{ runner.os }}-pip-
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+    
+    - name: Create credentials file
+      run: |
+        echo '${{ secrets.GOOGLE_CREDENTIALS }}' > credentials.json
+    
+    - name: Create token file if exists
+      run: |
+        if [ ! -z "${{ secrets.GOOGLE_TOKEN }}" ]; then
+          echo '${{ secrets.GOOGLE_TOKEN }}' > token.json
+        fi
+    
+    - name: Run daily report script
+      env:
+        DB_HOST: ${{ secrets.DB_HOST }}
+        DB_PORT: ${{ secrets.DB_PORT }}
+        DB_USER: ${{ secrets.DB_USER }}
+        DB_PASS: ${{ secrets.DB_PASS }}
+        DB_NAME: ${{ secrets.DB_NAME }}
+      run: |
+        cd scripts
+        python automated_mail_WTS.py
+    
+    - name: Clean up sensitive files
+      if: always()
+      run: |
+        rm -f credentials.json token.json

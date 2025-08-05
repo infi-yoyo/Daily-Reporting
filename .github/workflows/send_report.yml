@@ -1,0 +1,45 @@
+name: Daily Gmail Report Sender
+
+on:
+  schedule:
+    - cron: '30 9 * * *'  # 10:00 AM IST daily
+  workflow_dispatch:
+
+jobs:
+  send-gmail-report:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install PostgreSQL client
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libpq-dev
+
+      - name: Install Python dependencies
+        run: |
+          pip install --upgrade pip
+          pip install pandas jinja2 psycopg2-binary \
+                      google-auth google-auth-oauthlib google-api-python-client
+
+      - name: Inject credentials files from GitHub secrets
+        run: |
+          echo "${{ secrets.GMAIL_TOKEN }}" > token.json
+          echo "${{ secrets.GMAIL_CREDS }}" > credentials.json
+
+      - name: Run Gmail reporting script
+        env:
+          DB_HOST: ${{ secrets.DB_HOST }}
+          DB_PORT: ${{ secrets.DB_PORT }}
+          DB_NAME: ${{ secrets.DB_NAME }}
+          DB_USER: ${{ secrets.DB_USER }}
+          DB_PASS: ${{ secrets.DB_PASS }}
+        run: |
+          python automated_mail_WTS.py

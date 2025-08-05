@@ -26,69 +26,68 @@ SCOPES = ['https://www.googleapis.com/auth/gmail.send']  # Adjust as needed for 
 # Add this function to handle file paths in GitHub Actions
 def get_credentials_path():
     """Get the correct path for credentials file"""
-    if os.path.exists('credentials.json'):
-        return 'credentials.json'
-    elif os.path.exists('../credentials.json'):
-        return '../credentials.json'
-    else:
-        raise FileNotFoundError("credentials.json not found")
+    for path in ['credentials.json', 'scripts/credentials.json', '../credentials.json']:
+        if os.path.exists(path):
+            return path
+    raise FileNotFoundError("credentials.json not found in any known path")
+
+def get_token_path():
+    """Find token.json relative to script"""
+    for path in ['token.json', './scripts/token.json', '../scripts/token.json']:
+        if os.path.exists(path):
+            return path
+    raise FileNotFoundError("token.json not found")
 
 # Update your service_gmail_api function
 def service_gmail_api():
     creds = None
     token_path = 'token.json'
     
-    # Try to load existing token
+    # 1. Load token if available
     if os.path.exists(token_path):
         try:
-            creds = Credentials.from_authorized_user_file(token_path, SCOPES)
+            creds = Credentials.from_authorized_user_file(get_token_path(), SCOPES)
         except Exception as e:
             print(f"Error loading token: {e}")
     
-    # Refresh credentials if needed
+    # 2. Refresh token if needed
     if creds and creds.expired and creds.refresh_token:
         try:
             creds.refresh(Request())
-            # Save refreshed credentials
             with open(token_path, 'w') as token:
                 token.write(creds.to_json())
-        except Exception as e:
+        except RefreshError as e:
             print(f"Token refresh failed: {e}")
             creds = None
-    
-    # If no valid credentials, try to get new ones
+
+    # 3. If no valid creds, try loading from credentials.json
     if not creds or not creds.valid:
         try:
-            # Check if credentials file exists and is valid
-            if not os.path.exists('credentials.json'):
-                print("Error: credentials.json not found")
-                sys.exit(1)
-                
-            with open('credentials.json', 'r') as f:
+            cred_path = get_credentials_path()
+            print(f"Loading credentials from: {cred_path}")
+
+            with open(cred_path, 'r') as f:
                 cred_data = json.load(f)
-                
-            flow = InstalledAppFlow.from_client_secrets_file('credentials.json', SCOPES)
-            
-            # For GitHub Actions, we can't do interactive auth
+
             if 'GITHUB_ACTIONS' in os.environ:
-                print("Error: Cannot perform interactive authentication in GitHub Actions")
-                print("Please generate token.json locally and add it as a secret")
+                print("❌ Cannot perform interactive authentication in GitHub Actions.")
+                print("➡️  Please generate token.json locally and include it as a GitHub secret or artifact.")
                 sys.exit(1)
             else:
+                from google_auth_oauthlib.flow import InstalledAppFlow
+                flow = InstalledAppFlow.from_client_secrets_file(cred_path, SCOPES)
                 creds = flow.run_local_server(port=8080, access_type='offline', prompt='consent')
-                
+                with open(token_path, 'w') as token:
+                    token.write(creds.to_json())
+
         except json.JSONDecodeError as e:
             print(f"Invalid JSON in credentials file: {e}")
             sys.exit(1)
         except Exception as e:
             print(f"Authentication failed: {e}")
             sys.exit(1)
-        
-        # Save credentials for next run
-        if creds:
-            with open(token_path, 'w') as token:
-                token.write(creds.to_json())
 
+    # 4. Build the Gmail API service
     try:
         service = build('gmail', 'v1', credentials=creds)
         return service

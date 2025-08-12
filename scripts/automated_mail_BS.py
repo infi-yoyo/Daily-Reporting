@@ -457,7 +457,7 @@ template = """
     </style>
 </head>
 <body>
-    <p>Hi Wakefit,</p>
+    <p>Hi Bluestone,</p>
 
     <p>Warm Regards!!</p>
 

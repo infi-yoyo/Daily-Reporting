@@ -370,7 +370,7 @@ pending_perc = round((pending_count / total_interactions) * 100,1) if total_inte
 deferred_count = actionable_insights.get('Deferred decision making', {}).get('count', 0)
 deferred_perc = round((deferred_count / total_interactions) * 100, 1) if total_interactions > 0 else 0
 
-glitch_count = actionable_insights.get('Technical Glitch', {}).get('count', 0)
+glitch_count = actionable_insights.get('Technical/Process Issues', {}).get('count', 0)
 glitch_perc = round((glitch_count / total_interactions) * 100, 1) if total_interactions > 0 else 0
 
 # %%
@@ -461,7 +461,7 @@ template = """
 
     <p>Warm Regards!!</p>
 
-    <p>On {{ date }}, there were {{ total_interactions }} unsuccessful interactions, in which customers shared their phone numbers in {{ total_interactions_phone_number }} interactions. Interaction codes for customer-centric reasons for loss of sale are:</p>
+    <p>On {{ date }}, there were {{ total_interactions }} unsuccessful interactions, in which customers shared their phone numbers in {{ total_interactions_phone_number }} interactions. Interaction codes for potential win back reasons for loss of sale are:</p>
 
     <table>
         <thead>

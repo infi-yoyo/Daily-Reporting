@@ -461,7 +461,7 @@ template = """
 
     <p>Warm Regards!!</p>
 
-    <p>On {{ date }}, there were {{ total_interactions }} interactions, in which customers shared their phone numbers in {{ total_interactions_phone_number }} interactions. Interaction codes for customer-centric reasons for loss of sale are:</p>
+    <p>On {{ date }}, there were {{ total_interactions }} unsuccessful interactions, in which customers shared their phone numbers in {{ total_interactions_phone_number }} interactions. Interaction codes for customer-centric reasons for loss of sale are:</p>
 
     <table>
         <thead>
@@ -543,7 +543,7 @@ email_content = email_template.render(
     deferred_interactions=actionable_insights.get('Deferred decision making', {}).get('interaction_codes', ''),
     glitch_count= glitch_count,
     glitch_perc = glitch_perc,
-    glitch_interactions=actionable_insights.get('Technical Glitch', {}).get('interaction_codes', ''),
+    glitch_interactions=actionable_insights.get('Technical/Process Issues', {}).get('interaction_codes', ''),
     html_table1 = df3.to_html(index=False),
     html_table2 = df4.to_html(index=False)
 )

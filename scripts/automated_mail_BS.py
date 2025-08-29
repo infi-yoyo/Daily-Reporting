@@ -548,7 +548,7 @@ email_content = email_template.render(
     html_table2 = df4.to_html(index=False)
 )
 
-subject_template = 'Daily Performance Report - {{ date_query }}'
+subject_template = 'BlueStone <> YOYO AI - Actionable Insightst - {{ date_query }}'
 
 # Render the subject using Jinja2
 subject = Template(subject_template).render(date_query=date_query)

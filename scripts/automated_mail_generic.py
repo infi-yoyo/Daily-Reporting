@@ -359,7 +359,7 @@ for brand in brands:
     print(brand)
     
     #cc_emails = ["prakhar@goyoyo.ai", "nikhil@goyoyo.ai", "harshal@goyoyo.ai"]
-    #cc_emails = ["adarsh@goyoyo.ai"]
+    cc_emails = ["adarsh@goyoyo.ai"]
     if brand == "lenskart":
         #to_emails = ['aakash.kathuria@lenskart.in', 'suren@lenskart.com']
         to_emails = ["adarsh@goyoyo.ai"]

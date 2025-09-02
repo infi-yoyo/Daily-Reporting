@@ -97,11 +97,11 @@ def service_gmail_api():
 
 service = service_gmail_api()
 
-cc_emails = ["prakhar@goyoyo.ai", "nikhil@goyoyo.ai", "harshal@goyoyo.ai"]
-#cc_emails = []
+#cc_emails = ["prakhar@goyoyo.ai", "nikhil@goyoyo.ai", "harshal@goyoyo.ai"]
+cc_emails = []
 
-to_emails = ['adnan.kazim@wakefit.co', 'santhosh.hd@wakefit.co', 'dibyendu.panda@wakefit.co']
-#to_emails = ['adarsh@goyoyo.ai']
+#to_emails = ['adnan.kazim@wakefit.co', 'santhosh.hd@wakefit.co', 'dibyendu.panda@wakefit.co']
+to_emails = ['adarsh@goyoyo.ai']
 
 def create_html_message(sender, to, subject, html_content, cc_emails):
     """Create a message with HTML content for Gmail API."""
@@ -173,8 +173,9 @@ connection.rollback()
 
 # Set the date as current date - 2
 date_query = (datetime.now() - pd.Timedelta(days=2)).strftime('%Y-%m-%d')
+date_query_dt = datetime.strptime(date_query, "%Y-%m-%d")
 today = datetime.now()
-start_of_month = today.replace(day=1)
+start_of_month = date_query_dt.replace(day=1)
 start_date_month = start_of_month.strftime('%Y-%m-%d')
 date_2_days_ago = today - pd.Timedelta(days=2)
 start_of_week = date_2_days_ago - pd.Timedelta(days=date_2_days_ago.weekday())
@@ -186,26 +187,16 @@ end_date_week = end_of_week.strftime('%Y-%m-%d')
 query1 = f"""
 
 SELECT
-b.audio_url,
 b.interaction_code,
-b.start_time,
-b.end_time,
-b.date,
-c.name AS se_name,
-d.name AS store_name,
-a.primary_category_new,
-(elem->>'phone_number') AS phone_number,
-(elem->>'exchange_context') AS exchange_context,
-(elem1->>'category') AS category,
-(elem1->>'sub_category') AS sub_category,
-(elem1->>'reason') AS reason,
-a.customer_objection_handling
+(elem2 ->> 'category') as primary_catgeory,
+(elem1 ->> 'sub_category') as rlos_category
 FROM wakefit_interaction_flags AS a
 LEFT JOIN interaction_processed AS b ON a.interaction_id = b.id
 LEFT JOIN sales_person AS c ON b.sales_person_id = c.id
 LEFT JOIN store AS d ON b.store_id = d.id
 LEFT JOIN LATERAL jsonb_array_elements(b.phone_number_discussion) AS elem ON TRUE
 LEFT JOIN LATERAL jsonb_array_elements(a.reason_loss_of_sale) AS elem1 ON TRUE
+LEFT JOIN LATERAL jsonb_array_elements(a.primary_category_new) AS elem2 ON TRUE
 WHERE b.date = '{date_query}'
 AND CAST(b.duration AS INTEGER) > 180000
 AND a.sales_outcome = 'sale_unsuccessful'
@@ -215,7 +206,9 @@ AND EXISTS (
 SELECT 1
 FROM jsonb_array_elements(a.reason_loss_of_sale) AS elem2
 WHERE elem2->>'sub_category' IN ('Uncertainty in dimension', 'Deferred decision making', 'Technical Glitch')
-);
+)
+
+
     
 """
 
@@ -232,15 +225,63 @@ try:
     column_names = [desc[0] for desc in cursor.description]
     # Create the DataFrame using data and column names
     df1 = pd.DataFrame(rows, columns=column_names)
-    reason_summary = df1['sub_category'].value_counts().to_dict()
-    actionable_insights = {}
-    for reason, count in reason_summary.items():
-        # Get the interaction codes for each reason
-        interaction_codes = df1[df1['sub_category'] == reason]['interaction_code'].tolist()
-        actionable_insights[reason] = {
-            'count': count,
-            'interaction_codes': ', '.join(interaction_codes)
-        }
+    categories = df1['primary_catgeory'].unique()
+
+    issue_types = ['Uncertainty in dimension', 'Deferred decision making', 'Technical Glitch']
+
+    result_columns = [
+        'Prod_Category',
+        'Uncertainty in dimension - Count',
+        'Uncertainty in dimension - Interaction Code',
+        'Deferred decision making - Count', 
+        'Deferred decision making - Interaction Code',
+        'Technical Glitch - Count',
+        'Technical Glitch - Interaction Code'
+    ]
+
+    result_df = pd.DataFrame(columns=result_columns)
+
+    result_data = []
+    for category in categories:
+        try:
+            row_data = {'Prod_Category': category}
+            
+            # Filter data for current category
+            category_data = df1[df1['primary_catgeory'] == category]
+            
+            # Process each issue type
+            for issue_type in issue_types:
+                # Filter for current issue type
+                issue_data = category_data[category_data['rlos_category'] == issue_type]
+                
+                # Count
+                count = len(issue_data)
+                count_col = f'{issue_type} - Count'
+                row_data[count_col] = count
+                
+                # Get distinct interaction codes and join with comma
+                if count > 0 and 'interaction_code' in df1.columns:
+                    interaction_codes = issue_data['interaction_code'].dropna().unique()
+                    # Filter out empty strings and convert to string
+                    interaction_codes = [str(code).strip() for code in interaction_codes if str(code).strip() != '' and str(code).strip() != 'nan']
+                    interaction_codes_str = ', '.join(interaction_codes) if interaction_codes else ''
+                else:
+                    interaction_codes_str = ''
+                
+                code_col = f'{issue_type} - Interaction Code'
+                row_data[code_col] = interaction_codes_str
+            
+            result_data.append(row_data)
+        
+        except Exception as e:
+            print(f"Error processing category '{category}': {e}")
+            continue
+
+# Create the result DataFrame
+    result_date = pd.DataFrame(result_data)
+    df5 = result_date[result_date['Prod_Category'].notna() & (result_date['Prod_Category'].astype(str).str.strip() != '')]
+
+       
        
     
 except Exception as e:
@@ -286,20 +327,18 @@ except Exception as e:
 query3 = f"""
 
 SELECT
-count(b.interaction_code) as Count,
-(elem1->>'sub_category') AS Category
+(elem1->>'category') AS Prod_Category,
+count(distinct b.interaction_code) as Count
 FROM wakefit_interaction_flags AS a
 LEFT JOIN interaction_processed AS b ON a.interaction_id = b.id
 LEFT JOIN sales_person AS c ON b.sales_person_id = c.id
 LEFT JOIN store AS d ON b.store_id = d.id
-LEFT JOIN LATERAL jsonb_array_elements(a.reason_loss_of_sale) AS elem1 ON TRUE
+LEFT JOIN LATERAL jsonb_array_elements(a.primary_category_new) AS elem1 ON TRUE
 WHERE b.date between '{start_date_month}' and '{date_query}'
 AND CAST(b.duration AS INTEGER) > 180000
 AND a.sales_outcome = 'sale_unsuccessful'
 AND a.type_of_interaction = 'sales'
-group by 2
-order by 1 desc
-limit 3
+group by 1;
     
 """
 
@@ -324,20 +363,18 @@ except Exception as e:
 query4 = f"""
 
 SELECT
-count(b.interaction_code) as Count,
-(elem1->>'sub_category') AS Category
+(elem1->>'category') AS Prod_Category,
+count(distinct b.interaction_code) as Count
 FROM wakefit_interaction_flags AS a
 LEFT JOIN interaction_processed AS b ON a.interaction_id = b.id
 LEFT JOIN sales_person AS c ON b.sales_person_id = c.id
 LEFT JOIN store AS d ON b.store_id = d.id
-LEFT JOIN LATERAL jsonb_array_elements(a.reason_loss_of_sale) AS elem1 ON TRUE
+LEFT JOIN LATERAL jsonb_array_elements(a.primary_category_new) AS elem1 ON TRUE
 WHERE b.date between '{start_date_week}' and '{date_query}'
 AND CAST(b.duration AS INTEGER) > 180000
-AND a.sales_outcome = 'sale_unsuccessful'
 AND a.type_of_interaction = 'sales'
-group by 2
-order by 1 desc
-limit 3
+AND a.sales_outcome = 'sale_unsuccessful'
+group by 1;
     
 """
 
@@ -354,29 +391,25 @@ try:
     column_names = [desc[0] for desc in cursor.description]
     # Create the DataFrame using data and column names
     df4 = pd.DataFrame(rows, columns=column_names)
+
+
         
 except Exception as e:
     print(f"Error encountered: {e}")
-    connection.rollback()  # Rollback the transaction if an error occurs
+    connection.rollback()  # Rollback the transaction if an error occurs    
 
 finally:
     cursor.close()
 
+merged_df = df3.merge(df4, on='prod_category', how='left')
+merged_df = merged_df.rename(columns={'count_x': 'MTD', 'count_y': 'WTD'})
+new_order = ['prod_category', 'WTD', 'MTD']
+df_new_order = merged_df[new_order] 
+df6 = df_new_order[df_new_order['prod_category'].notna() & (df_new_order['prod_category'].astype(str).str.strip() != '')]
 
-# %%
 total_interactions = df2['interaction_count'][0]
-
 total_interactions_phone_number = len(df1)
 
-# Calculate the percentages for Uncertainty, Deferred Decision Making, and Technical Glitch
-uncertainty_count = actionable_insights.get('Uncertainty in dimension', {}).get('count', 0)
-uncertainty_perc = round((uncertainty_count / total_interactions) * 100,1) if total_interactions > 0 else 0
-
-deferred_count = actionable_insights.get('Deferred decision making', {}).get('count', 0)
-deferred_perc = round((deferred_count / total_interactions) * 100, 1) if total_interactions > 0 else 0
-
-glitch_count = actionable_insights.get('Technical Glitch', {}).get('count', 0)
-glitch_perc = round((glitch_count / total_interactions) * 100, 1) if total_interactions > 0 else 0
 
 # %%
 template = """
@@ -466,50 +499,19 @@ template = """
 
     <p>Warm Regards!!</p>
 
-    <p>On {{ date }}, there were {{ total_interactions }} interactions, in which customers shared their phone numbers in {{ total_interactions_phone_number }} interactions. Interaction codes for customer-centric reasons for loss of sale are:</p>
+    <p>On {{ date }}, there were {{ total_interactions }} unsuccessful interactions, in which customers shared their phone numbers in {{ total_interactions_phone_number }} interactions. Interaction codes for customer-centric reasons for loss of sale are:</p>
 
-    <table>
-        <thead>
-            <tr>
-                <th>Reason for Loss of Sale</th>
-                <th>Count</th>
-                <th>%</th>
-                <th>Interaction Codes</th>
-            </tr>
-        </thead>
-        <tbody>
-            <tr>
-                <td><strong>Uncertainty in dimension</strong></td>
-                <td class="count">{{ uncertainty_count }}</td>
-                <td class="percentage">{{ uncertainty_perc }}%</td>
-                <td class="interaction-codes">{{ uncertainty_interactions }}</td>
-            </tr>
-            <tr>
-                <td><strong>Deferred Decision Making</strong></td>
-                <td class="count">{{ deferred_count }}</td>
-                <td class="percentage">{{ deferred_perc }}%</td>
-                <td class="interaction-codes">{{ deferred_interactions }}</td>
-            </tr>
-            <tr>
-                <td><strong>Technical Glitch</strong></td>
-                <td class="count">{{ glitch_count }}</td>
-                <td class="percentage">{{ glitch_perc }}%</td>
-                <td class="interaction-codes">{{ glitch_interactions }}</td>
-            </tr>
-        </tbody>
-    </table>
+    {{html_table1}}
     
     <div class="insight">
-        <p><strong>Actionable Insight:</strong> Calling these phone numbers will act as a follow-up to convert these lost sales.</p>
+        <p><strong>Actionable Insight:</strong> Calling these phone numbers will act as a follow-up to convert these lost sales. You can look for detailed analysis reegarding these interactions on the dashboard</p>
+        <p><strong>Link to dashboard</strong> https://pilot.goyoyo.ai/ </p>
     </div>
 
-    <p><strong>Also, PFB the top 3 Reason for loss of sale for WTD and MTD </strong></p>
+    <p><strong>Also, PFB the count of unsuccessful interactions per category on WTD ({{start_date_week}} to {{ end_date_week }}) and MTD ({{start_date_month}} to {{ date }}) basis </strong></p>
 
-    <p><strong>Current ongoing week ({{start_date_week}} to {{ end_date_week }}):</strong></p>
     {{html_table2}}
     
-    <p><strong>Current ongoing Month ({{start_date_month}} to {{ date }}):</strong></p>
-    {{html_table1}}
     
     <p><strong>Note:</strong> These customer interactions lasted for more than three minutes.</p>
 
@@ -518,18 +520,6 @@ template = """
 </html>
 
 """
-
-# %%
-#data = {
-#   'name': ['Adnan', 'Santhosh', 'Rishabh', 'Dibyendu'],
-#   'email': ['adnan.kazim@wakefit.co', 'santhosh.hd@wakefit.co', 'rishabh.sethi@wakefit.co', 'dibyendu.panda@wakefit.co']
-#}
-
-#df = pd.DataFrame(data)
-
-#df
-
-# %%
 
 email_template = Template(template)
 email_content = email_template.render(
@@ -540,20 +530,16 @@ email_content = email_template.render(
     end_date_week = end_date_week,
     total_interactions=total_interactions,
     total_interactions_phone_number = total_interactions_phone_number,
-    uncertainty_count= uncertainty_count,
-    uncertainty_perc = uncertainty_perc,
-    uncertainty_interactions=actionable_insights.get('Uncertainty in dimension', {}).get('interaction_codes', ''),
-    deferred_count= deferred_count,
-    deferred_perc = deferred_perc,
-    deferred_interactions=actionable_insights.get('Deferred decision making', {}).get('interaction_codes', ''),
-    glitch_count= glitch_count,
-    glitch_perc = glitch_perc,
-    glitch_interactions=actionable_insights.get('Technical Glitch', {}).get('interaction_codes', ''),
-    html_table1 = df3.to_html(index=False),
-    html_table2 = df4.to_html(index=False)
+    html_table3 = result_df.to_html(index=False),
+    html_table1 = df5.to_html(index=False),
+    html_table2 = df6.to_html(index=False)
 )
 
 subject_template = 'Wakefit <> YOYO AI - Actionable Insights - {{ date_query }}'
+
+# Render the subject using Jinja2
+subject = Template(subject_template).render(date_query=date_query)
+
 
 # Render the subject using Jinja2
 subject = Template(subject_template).render(date_query=date_query)

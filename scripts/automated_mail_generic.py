@@ -343,7 +343,9 @@ template = """
         <p><b>Solution:</b> The response offers a concrete solution or action to address the objection.</p>
         <p><b>Generic:</b> The response is neither a clear explanation nor a solution.</p>
     </div>
-    
+
+	<p><strong>For detailed anlaysis, kinfly log in to the dashboard by clicking here: https://pilot.goyoyo.ai/</strong></p>
+ 
     <p><strong>Note:</strong> These customer interactions lasted for more than three minutes.</p>
 
     <p>Regards,<br>Adarsh.</p>

@@ -344,7 +344,7 @@ template = """
         <p><b>Generic:</b> The response is neither a clear explanation nor a solution.</p>
     </div>
 
-	<p><strong>For detailed anlaysis, kindly log in to the dashboard by clicking here: https://pilot.goyoyo.ai/</strong></p>
+	<p><strong>For detailed analysis, kindly log in to the dashboard by clicking here: https://pilot.goyoyo.ai/</strong></p>
  
     <p><strong>Note:</strong> These customer interactions lasted for more than three minutes.</p>
 

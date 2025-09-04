@@ -406,6 +406,7 @@ merged_df = merged_df.rename(columns={'count_x': 'MTD', 'count_y': 'WTD'})
 new_order = ['prod_category', 'WTD', 'MTD']
 df_new_order = merged_df[new_order] 
 df6 = df_new_order[df_new_order['prod_category'].notna() & (df_new_order['prod_category'].astype(str).str.strip() != '')]
+df6 = df6.sort_values(by='MTD', ascending=False)
 
 total_interactions = df2['interaction_count'][0]
 total_interactions_phone_number = len(df1)
@@ -508,7 +509,7 @@ template = """
         <p><strong>Link to dashboard</strong> https://pilot.goyoyo.ai/ </p>
     </div>
 
-    <p><strong>Also, PFB the count of unsuccessful interactions per category on WTD ({{start_date_week}} to {{ end_date_week }}) and MTD ({{start_date_month}} to {{ date }}) basis </strong></p>
+    <p><strong>Also, PFB the count of unsuccessful interactions per category on WTD ({{start_date_week}} to {{ date }}) and MTD ({{start_date_month}} to {{ date }}) basis </strong></p>
 
     {{html_table2}}
     

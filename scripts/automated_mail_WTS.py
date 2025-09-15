@@ -16,6 +16,8 @@ from google.oauth2.credentials import Credentials
 import sys
 import json
 from pathlib import Path
+from urllib.parse import urlencode
+import urllib.parse
 
 
 # Define SCOPES
@@ -97,11 +99,11 @@ def service_gmail_api():
 
 service = service_gmail_api()
 
-cc_emails = ["prakhar@goyoyo.ai", "nikhil@goyoyo.ai", "harshal@goyoyo.ai"]
-#cc_emails = []
+#cc_emails = ["prakhar@goyoyo.ai", "nikhil@goyoyo.ai", "harshal@goyoyo.ai"]
+cc_emails = []
 
-to_emails = ['adnan.kazim@wakefit.co', 'santhosh.hd@wakefit.co', 'dibyendu.panda@wakefit.co']
-#to_emails = ['adarsh@goyoyo.ai']
+#to_emails = ['adnan.kazim@wakefit.co', 'santhosh.hd@wakefit.co', 'dibyendu.panda@wakefit.co']
+to_emails = ['adarsh@goyoyo.ai']
 
 def create_html_message(sender, to, subject, html_content, cc_emails):
     """Create a message with HTML content for Gmail API."""
@@ -398,6 +400,47 @@ except Exception as e:
     print(f"Error encountered: {e}")
     connection.rollback()  # Rollback the transaction if an error occurs    
 
+query5 = f"""
+
+SELECT
+(elem1->>'sub_category') AS rlos_Category,
+count(distinct b.interaction_code) as Count
+FROM wakefit_interaction_flags AS a
+LEFT JOIN interaction_processed AS b ON a.interaction_id = b.id
+LEFT JOIN sales_person AS c ON b.sales_person_id = c.id
+LEFT JOIN store AS d ON b.store_id = d.id
+LEFT JOIN LATERAL jsonb_array_elements(a.reason_loss_of_sale) AS elem1 ON TRUE
+WHERE b.date = '{date_query}'
+AND CAST(b.duration AS INTEGER) > 180000
+AND a.type_of_interaction = 'sales'
+AND a.sales_outcome = 'sale_unsuccessful'
+group by 1
+order by 2 desc
+limit 5;
+    
+"""
+
+# Print the query to see the actual SQL string
+print(f"Executing SQL Query:\n{query5}")
+
+try:
+    cursor.execute(query5)
+    
+    # Fetch the data
+    rows = cursor.fetchall()
+    
+    # Extract column names
+    column_names = [desc[0] for desc in cursor.description]
+    # Create the DataFrame using data and column names
+    df7 = pd.DataFrame(rows, columns=column_names)
+    df7["%"] = ((df7["count"] / df7["count"].sum()) * 100).round().astype(int)
+
+
+        
+except Exception as e:
+    print(f"Error encountered: {e}")
+    connection.rollback()  # Rollback the transaction if an error occurs
+
 finally:
     cursor.close()
 
@@ -415,14 +458,15 @@ total_interactions_phone_number = len(df1)
 # %%
 template = """
 
+<!DOCTYPE html>
 <html>
 <head>
     <style>
-        body {
+         body {
             font-family: Arial, sans-serif;
             line-height: 1.6;
             color: #333;
-            max-width: 800px;
+            max-width: 1000px;
             margin: 0 auto;
             padding: 20px;
         }
@@ -433,7 +477,7 @@ template = """
             margin: 20px 0;
             font-size: 14px;
         }
-        
+
         th, td {
             border: 1px solid #ddd;
             padding: 12px;
@@ -490,6 +534,100 @@ template = """
             border-radius: 4px;
         }
         
+        /* Fixed styles for table and chart container */
+        .table-chart-container {
+            display: flex;
+            justify-content: space-between;
+            gap: 24px;
+            margin: 10px;
+            min-height: 350px;
+        }
+        
+        .chart-section {
+            width: 50%;
+            height: 100%;
+            margin: 10px;
+        }
+        
+        .table-section {
+            width: 50%;
+            height: 100%;
+            margin: 10px;
+        }
+        
+        .chart-container {
+            display: grid;
+            grid-template-rows: auto 1fr;   /* first row auto for title, second row flexible for chart */
+            gap: 8px;                       /* space between title and chart */
+            height: 320px;
+            width: 100%;
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 12px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            box-sizing: border-box;
+        }
+        
+        .chart-title {
+            text-align: center;
+            font-weight: bold;
+            color: #495057;
+            font-size: 14px;
+        }
+        
+        .chart-image {
+            height: inherit;
+        }
+        
+        .chart-container img {
+            width: 100%;
+            height: calc(100% - 40px);
+            object-fit: contain;
+        }
+        
+        /* Ensure table in table-section doesn't overflow */
+        .table-section table {
+            margin: 0;
+            width: 100%;
+            table-layout: fixed;
+            font-size: 11.5px;
+            line-height: 1.2;
+        }
+        
+        .table-section th, .table-section td {
+            padding: 6px;
+        }
+        
+        /* Responsive design */
+        @media (max-width: 900px) {
+            .table-chart-container {
+                flex-direction: column;
+                min-height: auto;
+            }
+            
+            .chart-section {
+                flex: none;
+                min-width: 100%;
+                max-width: 100%;
+            }
+            
+            .table-section {
+                flex: none;
+                min-width: 100%;
+            }
+        }
+        
+        @media (max-width: 600px) {
+            .chart-section {
+                min-width: 280px;
+            }
+            
+            .chart-container {
+                height: 280px;
+            }
+        }
+        
         p {
             margin: 15px 0;
         }
@@ -500,27 +638,102 @@ template = """
 
     <p>Warm Regards!!</p>
 
-    <p>On {{ date }}, there were {{ total_interactions }} unsuccessful interactions, in which customers shared their phone numbers in {{ total_interactions_phone_number }} interactions. Interaction codes for customer-centric reasons for loss of sale are:</p>
+    <p>On {{ date }}, there were {{ total_interactions }} unsuccessful interactions, PFB the distribution of top 5 reason for loss of sale for the unsuccessful interactions:</p>
+
+    <div class="table-chart-container">
+        <div class="chart-section">
+            <div class="chart-container">
+                <div class="chart-title">Distribution of Loss Reasons</div>
+                <div class="chart-image">
+                    <img src="{{ chart_url }}" alt="Loss Reason Donut" />
+                </div>
+            </div>
+        </div>
+        <div class="table-section">
+            {{html_table3}}
+        </div>
+    </div>
+    
+    <p>Of all the unsuccessful interactions, customers shared their phone numbers in {{ total_interactions_phone_number }} interactions. Interaction codes for customer-centric reasons for loss of sale are:</p>
 
     {{html_table1}}
     
     <div class="insight">
-        <p><strong>Actionable Insight:</strong> Calling these phone numbers will act as a follow-up to convert these lost sales. You can look for detailed analysis reegarding these interactions on the dashboard</p>
-        <p><strong>Link to dashboard</strong> https://pilot.goyoyo.ai/ </p>
+        <p><strong>Actionable Insight:</strong> Calling these phone numbers will act as a follow-up to convert these lost sales. You can look for detailed analysis regarding these interactions on the dashboard</p>
+        <p><strong>Link to dashboard:</strong> https://pilot.goyoyo.ai/ </p>
     </div>
 
-    <p><strong>Also, PFB the count of unsuccessful interactions per category on WTD ({{start_date_week}} to {{ date }}) and MTD ({{start_date_month}} to {{ date }}) basis </strong></p>
+    <p><strong>Also, PFB the count of unsuccessful interactions per category on WTD ({{start_date_week}} to {{ end_date_week }}) and MTD ({{start_date_month}} to {{ date }}) basis:</strong></p>
 
     {{html_table2}}
-    
     
     <p><strong>Note:</strong> These customer interactions lasted for more than three minutes.</p>
 
     <p>Regards,<br>Adarsh.</p>
+
 </body>
 </html>
 
 """
+
+
+
+
+# Prepare data
+labels = df7["rlos_category"].tolist()
+values = df7["%"].astype(float).tolist()
+
+# Build chart config for QuickChart (same schema as Chart.js)
+config = {
+    "type": "doughnut",
+    "data": {
+        "labels": labels,
+        "datasets": [{
+            "data": values,
+            "backgroundColor": [
+                "#2F78B7", "#F7901E", "#2FA84F", "#E33E34", "#8F63C6",
+                "#FFCD56", "#4BC0C0", "#C9CBCF", "#8FBC8F", "#DDA0DD"
+            ][:len(labels)],
+            "borderColor": "#FFFFFF",
+            "borderWidth": 3,
+            "hoverOffset": 4
+        }]
+    },
+    "options": {
+        "plugins": {
+            "legend": {
+                "position": "left",   
+                "align": "center",    
+                "labels": {
+                    "boxWidth": 14,
+                    "font": { "size": 13 }
+                }
+            },
+            "datalabels": { "display": False }
+        },
+        "layout": {
+            "padding": { "left": 20, "right": 20 }  # give breathing room
+        },
+        "cutout": "50%",
+        "rotation": -0.5 * 3.14159,
+        "responsive": True,
+        "maintainAspectRatio": False
+    }
+}
+
+
+base = "https://quickchart.io/chart"
+params = {
+    "c": json.dumps(config, separators=(",", ":")),  # compact JSON
+    "w": 800,                                        # width px
+    "h": 600,                                        # height px
+    "devicePixelRatio": 2,                           # crisp in email clients
+    "backgroundColor": "white"   ,                    # or "transparent"
+    "version": "4" 
+}
+query = "&".join(f"{k}={urllib.parse.quote(str(v))}" for k, v in params.items())
+chart_url = f"{base}?{query}"
+
 
 email_template = Template(template)
 email_content = email_template.render(
@@ -531,9 +744,10 @@ email_content = email_template.render(
     end_date_week = end_date_week,
     total_interactions=total_interactions,
     total_interactions_phone_number = total_interactions_phone_number,
-    html_table3 = result_df.to_html(index=False),
     html_table1 = df5.to_html(index=False),
-    html_table2 = df6.to_html(index=False)
+    html_table2 = df6.to_html(index=False),
+    html_table3 = df7.to_html(index=False),
+    chart_url=chart_url
 )
 
 subject_template = 'Wakefit <> YOYO AI - Actionable Insights - {{ date_query }}'
@@ -541,17 +755,10 @@ subject_template = 'Wakefit <> YOYO AI - Actionable Insights - {{ date_query }}'
 # Render the subject using Jinja2
 subject = Template(subject_template).render(date_query=date_query)
 
-
-# Render the subject using Jinja2
-subject = Template(subject_template).render(date_query=date_query)
-
-
-
-
-
-
-# %%
 # Send the email
 send_html_email_gmail_api(service, 'adarsh@goyoyo.ai', to_emails, cc_emails, subject, email_content)
+
+
+
 
 

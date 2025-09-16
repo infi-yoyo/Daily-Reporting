@@ -354,17 +354,21 @@ template = """
 
 """
 
-brands = ["lenskart"]
+brands = ["Sri Jagdamba Pearls", "Lenskart"]
+
 
 for brand in brands:
    
     print(brand)
-    
+    brand = "_".join(brand.lower().split())
     cc_emails = ["prakhar@goyoyo.ai", "nikhil@goyoyo.ai", "harshal@goyoyo.ai"]
-    #cc_emails = ["adarsh@goyoyo.ai"]
-    if brand == "lenskart":
-        to_emails = ['aakash.kathuria@lenskart.in', 'suren@lenskart.com']
+    #cc_emails = []
+    if brand == "sri_jagdamba_pearls":
+        to_emails = ['deepak.kumar@jpearls.com', 'avanish@jpearls.com']
         #to_emails = ["adarsh@goyoyo.ai"]
+
+    if brand == "lenskart":
+        to_emails = ["aakash.kathuria@lenskart.in", "suren@lenskart.com"]
 
     connection = create_connection()
     # Check if the connection is still open
@@ -727,10 +731,13 @@ for brand in brands:
         html_table2 = df7.to_html(index=False)
     )
 
-    subject_template = 'Lenskart <> YOYO AI - Actionable Insights - {{ date_query }}'
+    subject_template = '{{ brand }} <> YOYO AI - Actionable Insights - {{ date_query }}'
 
     # Render the subject using Jinja2
-    subject = Template(subject_template).render(date_query=date_query)
+    subject = Template(subject_template).render(
+        date_query=date_query,
+        brand = brand.replace("_", " ").title()
+        )
 
     send_html_email_gmail_api(service, 'adarsh@goyoyo.ai', to_emails, cc_emails, subject, email_content)
     

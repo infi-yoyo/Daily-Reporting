@@ -97,11 +97,11 @@ def service_gmail_api():
 
 service = service_gmail_api()
 
-cc_emails = ["prakhar@goyoyo.ai", "nikhil@goyoyo.ai", "harshal@goyoyo.ai"]
-#cc_emails = []
+#cc_emails = ["prakhar@goyoyo.ai", "nikhil@goyoyo.ai", "harshal@goyoyo.ai"]
+cc_emails = []
 
-to_emails = ["mudita.gupta@bluestone.com", "chaitanya.raheja@bluestone.com", "chaitanya.raheja@bluestone.com", "kshitij.arora@bluestone.com", "gaurav.sachdeva@bluestone.com"]
-#to_emails = ['adarsh@goyoyo.ai']
+#to_emails = ["mudita.gupta@bluestone.com", "chaitanya.raheja@bluestone.com", "chaitanya.raheja@bluestone.com", "kshitij.arora@bluestone.com", "gaurav.sachdeva@bluestone.com"]
+to_emails = ['adarsh@goyoyo.ai']
 
 def create_html_message(sender, to, subject, html_content, cc_emails):
     """Create a message with HTML content for Gmail API."""
@@ -138,7 +138,20 @@ def send_html_email_gmail_api(service, sender_email, to_emails, cc_emails, subje
         print(f'An error occurred: {error}')
         return None
 
+def sort_by_total_interaction(df, ascending=False):
+    total_col = ("Total", "Total Interaction")
 
+    # if you already replaced 0 with '-', coerce to numbers for a correct sort
+    key = pd.to_numeric(df[total_col], errors="coerce")
+
+    # keep "Grand Total" pinned to bottom (optional)
+    if "Grand Total" in df.index:
+        main = df.drop(index="Grand Total")
+        sorted_idx = key.loc[main.index].sort_values(ascending=ascending).index
+        return pd.concat([main.loc[sorted_idx], df.loc[["Grand Total"]]])
+    else:
+        sorted_idx = key.sort_values(ascending=ascending).index
+        return df.loc[sorted_idx]
 
 
 # 1. Connect to your Database
@@ -182,38 +195,24 @@ end_of_week = start_of_week + pd.Timedelta(days=6)
 start_date_week = start_of_week.strftime('%Y-%m-%d')
 end_date_week = end_of_week.strftime('%Y-%m-%d')
 
-
 query1 = f"""
 
-SELECT
-b.audio_url,
-b.interaction_code,
-b.start_time,
-b.end_time,
-b.date,
-c.name AS se_name,
-d.name AS store_name,
-(elem->>'phone_number') AS phone_number,
-(elem->>'exchange_context') AS exchange_context,
-(elem1->>'category') AS category,
-(elem1->>'sub_category') AS sub_category,
-(elem1->>'reason') AS reason,
-a.customer_objection_handling
-FROM bluestone_interaction_flags AS a
-LEFT JOIN interaction_processed AS b ON a.interaction_id = b.id
-LEFT JOIN sales_person AS c ON b.sales_person_id = c.id
-LEFT JOIN store AS d ON b.store_id = d.id
-LEFT JOIN LATERAL jsonb_array_elements(b.phone_number_discussion) AS elem ON TRUE
-LEFT JOIN LATERAL jsonb_array_elements(a.reason_loss_of_sale) AS elem1 ON TRUE
-WHERE b.date = '{date_query}'
-AND CAST(b.duration AS INTEGER) > 180000
-AND a.sales_outcome = 'sale_unsuccessful'
-AND elem->>'phone_number_exchange' in ('1')
-AND EXISTS (
-SELECT 1
-FROM jsonb_array_elements(a.reason_loss_of_sale) AS elem2
-WHERE elem2->>'sub_category' IN ('Pending Follow up action', 'Deferred decision making', 'Technical/Process Issues')
-);
+    SELECT 
+	g.name as "ABM",
+	count(distinct(c.id)) as "Store Count",
+	count(distinct(b.sales_person_id)) as "Executive Count",
+	count(a.id) as "Total Interaction", 
+	COALESCE(SUM( (elem1->>'gms_pitched')::int ), 0) AS "GMS Pitched",
+	COALESCE(SUM( (elem1->>'gms_sold')::int ), 0) AS "GMS Sold"
+    FROM bluestone_interaction_flags as a 
+    LEFT JOIN interaction_processed AS b on a.interaction_id = b.id
+    LEFT JOIN store AS c ON b.store_id = c.id
+    left join area_business_manager as f on c.abm_id = f.id
+    left join users as g on f.user_id = g.id
+    LEFT JOIN LATERAL jsonb_array_elements(a.sop_new) AS elem1 ON TRUE
+    WHERE b.date = '{date_query}'  
+    and cast(b.duration as integer) > 180000
+    group by 1;
     
 """
 
@@ -230,37 +229,34 @@ try:
     column_names = [desc[0] for desc in cursor.description]
     # Create the DataFrame using data and column names
     df1 = pd.DataFrame(rows, columns=column_names)
-    reason_summary = df1['sub_category'].value_counts().to_dict()
-    actionable_insights = {}
-    for reason, count in reason_summary.items():
-        # Get the interaction codes for each reason
-        interaction_codes = df1[df1['sub_category'] == reason]['interaction_code'].tolist()
-        actionable_insights[reason] = {
-            'count': count,
-            'interaction_codes': ', '.join(interaction_codes)
-        }
-       
+    df1['GMS Pitched (%)'] = np.where(df1['Total Interaction'] > 0,((df1['GMS Pitched'] / df1['Total Interaction']) * 100).round(),0).astype(int)
+    df1['GMS Sold (%)'] = np.where(df1['GMS Pitched'] > 0,((df1['GMS Sold'] / df1['GMS Pitched']) * 100).round(),0).astype(int)
+    df1 = df1.sort_values(by='Store Count', ascending=False)
+    
     
 except Exception as e:
     print(f"Error encountered: {e}")
     connection.rollback()  # Rollback the transaction if an error occurs
 
+
 query2 = f"""
 
-SELECT
-count (a.id) as interaction_count
-FROM bluestone_interaction_flags AS a
-LEFT JOIN interaction_processed AS b ON a.interaction_id = b.id
-LEFT JOIN sales_person AS c ON b.sales_person_id = c.id
-LEFT JOIN store AS d ON b.store_id = d.id
-WHERE b.date = '{date_query}'
-AND CAST(b.duration AS INTEGER) > 180000
-AND a.sales_outcome = 'sale_unsuccessful';
+   select
+  count(interaction_code) as "Total Interaction",
+  sum(case when a.sales_outcome = 'sale_successful' then 1 else 0 end) as "Successful Interactions",
+  (elem1 ->> 'item_type') as "Design",
+  (elem1 ->> 'price_range') as "Price Range"
+  FROM bluestone_interaction_flags as a 
+  LEFT JOIN interaction_processed AS b on a.interaction_id = b.id
+  LEFT JOIN LATERAL jsonb_array_elements(a.new_products_tried) AS elem1 ON TRUE
+  WHERE b.date = '{date_query}'  
+  and cast(b.duration as integer) > 180000
+  group by 3,4;
     
 """
 
 # Print the query to see the actual SQL string
-#print(f"Executing SQL Query:\n{query2}")
+#print(f"Executing SQL Query:\n{query1}")
 
 try:
     cursor.execute(query2)
@@ -273,7 +269,55 @@ try:
     # Create the DataFrame using data and column names
     df2 = pd.DataFrame(rows, columns=column_names)
     
-       
+    price_order = ["<20K", "20K - 50K", "50K - 1L", "1L - 2L", "2L - 5L", "5L - 10L", ">10L"]
+
+    # normalize some common variants
+    norm_map = {
+        "<20K": "<20K", "20K-50K": "20K - 50K", "20k-50k": "20K - 50K",
+        "50K-1L": "50K - 1L", "50k-1L": "50K - 1L",
+        "1L-2L": "1L - 2L", "2L-5L": "2L - 5L", "5L-10L": "5L - 10L",
+        ">10L": ">10L"
+    }
+    df2 = df2.copy()
+    df2["price_range"] = df2["Price Range"].map(lambda x: norm_map.get(str(x).strip(), x))
+
+    # keep only valid ranges
+    dfw = df2[df2["price_range"].isin(price_order)].copy()
+
+    # pivots
+    p_inter = pd.pivot_table(
+        dfw, index="Design", columns="price_range",
+        values="Total Interaction", aggfunc="sum", fill_value=0
+    ).reindex(columns=price_order, fill_value=0)
+
+    p_succ = pd.pivot_table(
+        dfw, index="Design", columns="price_range",
+        values="Successful Interactions", aggfunc="sum", fill_value=0
+    ).reindex(columns=price_order, fill_value=0)
+
+    # build multiindex columns
+    cols, data = [], {}
+    for pr in price_order:
+        cols.extend([(pr, "Total Interaction"), (pr, "Successful")])
+        data[(pr, "Total Interaction")] = p_inter[pr]
+        data[(pr, "Successful")] = p_succ[pr]
+
+    # add totals across ranges (row total per design)
+    data[("Total", "Total Interaction")] = p_inter.sum(axis=1)
+    data[("Total", "Successful")] = p_succ.sum(axis=1)
+    cols.extend([("Total", "Total Interaction"), ("Total", "Successful")])
+
+    df_design = pd.DataFrame(data, index=p_inter.index)
+    df_design = df_design.reindex(columns=pd.MultiIndex.from_tuples(cols))
+    df_design.index.name = "Design"
+
+    # add one grand total row (sum across all designs)
+    grand_total = df_design.sum(numeric_only=True)
+    df_design.loc["Grand Total"] = grand_total
+    df_design = sort_by_total_interaction(df_design, ascending=False)
+    df_design = df_design.mask(df_design.eq(0), '-')
+    
+
     
 except Exception as e:
     print(f"Error encountered: {e}")
@@ -282,25 +326,22 @@ except Exception as e:
 
 query3 = f"""
 
-SELECT
-count(b.interaction_code) as Count,
-(elem1->>'sub_category') AS Category
-FROM bluestone_interaction_flags AS a
-LEFT JOIN interaction_processed AS b ON a.interaction_id = b.id
-LEFT JOIN sales_person AS c ON b.sales_person_id = c.id
-LEFT JOIN store AS d ON b.store_id = d.id
-LEFT JOIN LATERAL jsonb_array_elements(a.reason_loss_of_sale) AS elem1 ON TRUE
-WHERE b.date between '{start_date_month}' and '{date_query}'
-AND CAST(b.duration AS INTEGER) > 180000
-AND a.sales_outcome = 'sale_unsuccessful'
-group by 2
-order by 1 desc
-limit 3
+   select
+  count(interaction_code) as "Total Interaction",
+  sum(case when a.sales_outcome = 'sale_successful' then 1 else 0 end) as "Successful Interactions",
+  (elem1 ->> 'material') as "Item",
+  (elem1 ->> 'price_range') as "Price Range"
+  FROM bluestone_interaction_flags as a 
+  LEFT JOIN interaction_processed AS b on a.interaction_id = b.id
+  LEFT JOIN LATERAL jsonb_array_elements(a.new_products_tried) AS elem1 ON TRUE
+  WHERE b.date = '{date_query}'  
+  and cast(b.duration as integer) > 180000
+  group by 3,4;
     
 """
 
 # Print the query to see the actual SQL string
-#print(f"Executing SQL Query:\n{query3}")
+#print(f"Executing SQL Query:\n{query1}")
 
 try:
     cursor.execute(query3)
@@ -312,70 +353,68 @@ try:
     column_names = [desc[0] for desc in cursor.description]
     # Create the DataFrame using data and column names
     df3 = pd.DataFrame(rows, columns=column_names)
-        
+    
+    price_order = ["<20K", "20K - 50K", "50K - 1L", "1L - 2L", "2L - 5L", "5L - 10L", ">10L"]
+
+# normalize some common variants
+    norm_map = {
+        "<20K": "<20K", "20K-50K": "20K - 50K", "20k-50k": "20K - 50K",
+        "50K-1L": "50K - 1L", "50k-1L": "50K - 1L",
+        "1L-2L": "1L - 2L", "2L-5L": "2L - 5L", "5L-10L": "5L - 10L",
+        ">10L": ">10L"
+    }
+    df3 = df3.copy()
+    df3["price_range"] = df3["Price Range"].map(lambda x: norm_map.get(str(x).strip(), x))
+
+    # keep only valid ranges
+    dfw = df3[df3["price_range"].isin(price_order)].copy()
+
+    # pivots
+    p_inter = pd.pivot_table(
+        dfw, index="Item", columns="price_range",
+        values="Total Interaction", aggfunc="sum", fill_value=0
+    ).reindex(columns=price_order, fill_value=0)
+
+    p_succ = pd.pivot_table(
+        dfw, index="Item", columns="price_range",
+        values="Successful Interactions", aggfunc="sum", fill_value=0
+    ).reindex(columns=price_order, fill_value=0)
+
+    # build multiindex columns
+    cols, data = [], {}
+    for pr in price_order:
+        cols.extend([(pr, "Total Interaction"), (pr, "Successful")])
+        data[(pr, "Total Interaction")] = p_inter[pr]
+        data[(pr, "Successful")] = p_succ[pr]
+
+    # add totals across ranges (row total per design)
+    data[("Total", "Total Interaction")] = p_inter.sum(axis=1)
+    data[("Total", "Successful")] = p_succ.sum(axis=1)
+    cols.extend([("Total", "Total Interaction"), ("Total", "Successful")])
+
+    df_item = pd.DataFrame(data, index=p_inter.index)
+    df_item = df_item.reindex(columns=pd.MultiIndex.from_tuples(cols))
+    df_item.index.name = "Item"
+
+    # add one grand total row (sum across all designs)
+    grand_total = df_item.sum(numeric_only=True)
+    df_item.loc["Grand Total"] = grand_total
+    df_item = sort_by_total_interaction(df_item, ascending=False)
+    df_item = df_item.mask(df_item.eq(0), '-')
+    
 except Exception as e:
     print(f"Error encountered: {e}")
     connection.rollback()  # Rollback the transaction if an error occurs
 
-query4 = f"""
 
-SELECT
-count(b.interaction_code) as Count,
-(elem1->>'sub_category') AS Category
-FROM bluestone_interaction_flags AS a
-LEFT JOIN interaction_processed AS b ON a.interaction_id = b.id
-LEFT JOIN sales_person AS c ON b.sales_person_id = c.id
-LEFT JOIN store AS d ON b.store_id = d.id
-LEFT JOIN LATERAL jsonb_array_elements(a.reason_loss_of_sale) AS elem1 ON TRUE
-WHERE b.date between '{start_date_week}' and '{date_query}'
-AND CAST(b.duration AS INTEGER) > 180000
-AND a.sales_outcome = 'sale_unsuccessful'
-group by 2
-order by 1 desc
-limit 3
-    
-"""
-
-# Print the query to see the actual SQL string
-#print(f"Executing SQL Query:\n{query3}")
-
-try:
-    cursor.execute(query4)
-    
-    # Fetch the data
-    rows = cursor.fetchall()
-    
-    # Extract column names
-    column_names = [desc[0] for desc in cursor.description]
-    # Create the DataFrame using data and column names
-    df4 = pd.DataFrame(rows, columns=column_names)
-        
-except Exception as e:
-    print(f"Error encountered: {e}")
-    connection.rollback()  # Rollback the transaction if an error occurs
 
 finally:
     cursor.close()
 
 
-# %%
-total_interactions = df2['interaction_count'][0]
-
-total_interactions_phone_number = len(df1)
-
-# Calculate the percentages for Pending Follow up action, Deferred Decision Making, and Technical Glitch
-pending_count = actionable_insights.get('Pending Follow up action', {}).get('count', 0)
-pending_perc = round((pending_count / total_interactions) * 100,1) if total_interactions > 0 else 0
-
-deferred_count = actionable_insights.get('Deferred decision making', {}).get('count', 0)
-deferred_perc = round((deferred_count / total_interactions) * 100, 1) if total_interactions > 0 else 0
-
-glitch_count = actionable_insights.get('Technical/Process Issues', {}).get('count', 0)
-glitch_perc = round((glitch_count / total_interactions) * 100, 1) if total_interactions > 0 else 0
 
 # %%
 template = """
-
 <html>
 <head>
     <style>
@@ -461,50 +500,21 @@ template = """
 
     <p>Warm Regards!!</p>
 
-    <p>On {{ date }}, there were {{ total_interactions }} unsuccessful interactions, in which customers shared their phone numbers in {{ total_interactions_phone_number }} interactions. Interaction codes for potential win back reasons for loss of sale are:</p>
+    <p>PFB the insights based on the interations that took place of {{ date }}</p>
+    
+    <p><strong>GMS</strong>
+    {{html_table1}}
 
-    <table>
-        <thead>
-            <tr>
-                <th>Reason for Loss of Sale</th>
-                <th>Count</th>
-                <th>%</th>
-                <th>Interaction Codes</th>
-            </tr>
-        </thead>
-        <tbody>
-            <tr>
-                <td><strong>Pending Follow Up Action</strong></td>
-                <td class="count">{{ pending_count }}</td>
-                <td class="percentage">{{ pending_perc }}%</td>
-                <td class="interaction-codes">{{ pending_interactions }}</td>
-            </tr>
-            <tr>
-                <td><strong>Deferred Decision Making</strong></td>
-                <td class="count">{{ deferred_count }}</td>
-                <td class="percentage">{{ deferred_perc }}%</td>
-                <td class="interaction-codes">{{ deferred_interactions }}</td>
-            </tr>
-            <tr>
-                <td><strong>Technical Glitch</strong></td>
-                <td class="count">{{ glitch_count }}</td>
-                <td class="percentage">{{ glitch_perc }}%</td>
-                <td class="interaction-codes">{{ glitch_interactions }}</td>
-            </tr>
-        </tbody>
-    </table>
+    <p><strong>Conversion Rate by Design</strong>
+    {{html_table2}}
+
+    <p><strong>Conversion Rate by Item</strong>
+    {{html_table3}}
     
     <div class="insight">
-        <p><strong>Actionable Insight:</strong> Calling these phone numbers will act as a follow-up to convert these lost sales.</p>
+        <p>You can look for detailed analysis regarding these interactions on the dashboard</p>
+        <p><strong>Link to dashboard:</strong> https://pilot.goyoyo.ai/ </p>
     </div>
-
-    <p><strong>Also, PFB the top 3 Reason for loss of sale for WTD and MTD </strong></p>
-
-    <p><strong>Current ongoing week ({{start_date_week}} to {{ end_date_week }}):</strong></p>
-    {{html_table2}}
-    
-    <p><strong>Current ongoing Month ({{start_date_month}} to {{ date }}):</strong></p>
-    {{html_table1}}
     
     <p><strong>Note:</strong> These customer interactions lasted for more than three minutes.</p>
 
@@ -514,18 +524,6 @@ template = """
 
 """
 
-# %%
-#data = {
-#   'name': ['Adnan', 'Santhosh', 'Rishabh', 'Dibyendu'],
-#   'email': ['adnan.kazim@wakefit.co', 'santhosh.hd@wakefit.co', 'rishabh.sethi@wakefit.co', 'dibyendu.panda@wakefit.co']
-#}
-
-#df = pd.DataFrame(data)
-
-#df
-
-# %%
-
 email_template = Template(template)
 email_content = email_template.render(
     #name=row['name'],  # Replace with dynamic client name if needed
@@ -533,20 +531,11 @@ email_content = email_template.render(
     start_date_month=start_date_month,
     start_date_week = start_date_week,
     end_date_week = end_date_week,
-    total_interactions=total_interactions,
-    total_interactions_phone_number = total_interactions_phone_number,
-    pending_count= pending_count,
-    pending_perc = pending_perc,
-    pending_interactions=actionable_insights.get('Pending Follow up action', {}).get('interaction_codes', ''),
-    deferred_count= deferred_count,
-    deferred_perc = deferred_perc,
-    deferred_interactions=actionable_insights.get('Deferred decision making', {}).get('interaction_codes', ''),
-    glitch_count= glitch_count,
-    glitch_perc = glitch_perc,
-    glitch_interactions=actionable_insights.get('Technical/Process Issues', {}).get('interaction_codes', ''),
-    html_table1 = df3.to_html(index=False),
-    html_table2 = df4.to_html(index=False)
-)
+    html_table1 = df1.to_html(index=False),
+    html_table2 = df_design.reset_index().rename(columns={'index':'Design'}).to_html(index=False),
+    html_table3 = df_item.reset_index().rename(columns={'index':'Item'}).to_html(index=False)
+    )
+
 
 subject_template = 'BlueStone <> YOYO AI - Actionable Insights - {{ date_query }}'
 

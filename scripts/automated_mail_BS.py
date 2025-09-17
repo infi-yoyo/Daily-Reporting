@@ -195,30 +195,6 @@ end_of_week = start_of_week + pd.Timedelta(days=6)
 start_date_week = start_of_week.strftime('%Y-%m-%d')
 end_date_week = end_of_week.strftime('%Y-%m-%d')
 
-query1 = f"""
-
-    SELECT 
-	g.name as "ABM",
-	count(distinct(c.id)) as "Store Count",
-	count(distinct(b.sales_person_id)) as "Executive Count",
-	count(a.id) as "Total Interaction", 
-	COALESCE(SUM( (elem1->>'gms_pitched')::int ), 0) AS "GMS Pitched",
-	COALESCE(SUM( (elem1->>'gms_sold')::int ), 0) AS "GMS Sold"
-    FROM bluestone_interaction_flags as a 
-    LEFT JOIN interaction_processed AS b on a.interaction_id = b.id
-    LEFT JOIN store AS c ON b.store_id = c.id
-    left join area_business_manager as f on c.abm_id = f.id
-    left join users as g on f.user_id = g.id
-    LEFT JOIN LATERAL jsonb_array_elements(a.sop_new) AS elem1 ON TRUE
-    WHERE b.date = '{date_query}'  
-    and cast(b.duration as integer) > 180000
-    group by 1;
-    
-"""
-
-# Print the query to see the actual SQL string
-#print(f"Executing SQL Query:\n{query1}")
-
 try:
     cursor.execute(query1)
     
@@ -232,6 +208,21 @@ try:
     df1['GMS Pitched (%)'] = np.where(df1['Total Interaction'] > 0,((df1['GMS Pitched'] / df1['Total Interaction']) * 100).round(),0).astype(int)
     df1['GMS Sold (%)'] = np.where(df1['GMS Pitched'] > 0,((df1['GMS Sold'] / df1['GMS Pitched']) * 100).round(),0).astype(int)
     df1 = df1.sort_values(by='Store Count', ascending=False)
+    totals = pd.DataFrame({
+    "ABM": ["Grand Total"],
+    "Store Count": [df1["Store Count"].sum()],
+    "Executive Count": [df1["Executive Count"].sum()],
+    "Total Interaction": [df1["Total Interaction"].sum()],
+    "GMS Pitched": [df1["GMS Pitched"].sum()],
+    "GMS Sold": [df1["GMS Sold"].sum()]
+    })
+
+# Calculate percentages based on totals
+    totals["GMS Pitched (%)"] = round((totals["GMS Pitched"] / totals["Total Interaction"]) * 100, 0).astype(int)
+    totals["GMS Sold (%)"] = round((totals["GMS Sold"] / totals["Total Interaction"]) * 100, 0).astype(int)
+
+    # Append to df1
+    df1 = pd.concat([df1, totals], ignore_index=True)
     
     
 except Exception as e:
@@ -243,7 +234,7 @@ query2 = f"""
 
    select
   count(interaction_code) as "Total Interaction",
-  sum(case when a.sales_outcome = 'sale_successful' then 1 else 0 end) as "Successful Interactions",
+  sum(case when a.sales_outcome = 'sale_unsuccessful' then 1 else 0 end) as "Unuccessful Interactions",
   (elem1 ->> 'item_type') as "Design",
   (elem1 ->> 'price_range') as "Price Range"
   FROM bluestone_interaction_flags as a 
@@ -292,20 +283,20 @@ try:
 
     p_succ = pd.pivot_table(
         dfw, index="Design", columns="price_range",
-        values="Successful Interactions", aggfunc="sum", fill_value=0
+        values="Unuccessful Interactions", aggfunc="sum", fill_value=0
     ).reindex(columns=price_order, fill_value=0)
 
     # build multiindex columns
     cols, data = [], {}
     for pr in price_order:
-        cols.extend([(pr, "Total Interaction"), (pr, "Successful")])
+        cols.extend([(pr, "Total Interaction"), (pr, "Unuccessful")])
         data[(pr, "Total Interaction")] = p_inter[pr]
-        data[(pr, "Successful")] = p_succ[pr]
+        data[(pr, "Unuccessful")] = p_succ[pr]
 
     # add totals across ranges (row total per design)
     data[("Total", "Total Interaction")] = p_inter.sum(axis=1)
-    data[("Total", "Successful")] = p_succ.sum(axis=1)
-    cols.extend([("Total", "Total Interaction"), ("Total", "Successful")])
+    data[("Total", "Unuccessful")] = p_succ.sum(axis=1)
+    cols.extend([("Total", "Total Interaction"), ("Total", "Unuccessful")])
 
     df_design = pd.DataFrame(data, index=p_inter.index)
     df_design = df_design.reindex(columns=pd.MultiIndex.from_tuples(cols))
@@ -328,7 +319,7 @@ query3 = f"""
 
    select
   count(interaction_code) as "Total Interaction",
-  sum(case when a.sales_outcome = 'sale_successful' then 1 else 0 end) as "Successful Interactions",
+  sum(case when a.sales_outcome = 'sale_unsuccessful' then 1 else 0 end) as "Unsuccessful Interactions",
   (elem1 ->> 'material') as "Item",
   (elem1 ->> 'price_range') as "Price Range"
   FROM bluestone_interaction_flags as a 
@@ -377,20 +368,20 @@ try:
 
     p_succ = pd.pivot_table(
         dfw, index="Item", columns="price_range",
-        values="Successful Interactions", aggfunc="sum", fill_value=0
+        values="Unsuccessful Interactions", aggfunc="sum", fill_value=0
     ).reindex(columns=price_order, fill_value=0)
 
     # build multiindex columns
     cols, data = [], {}
     for pr in price_order:
-        cols.extend([(pr, "Total Interaction"), (pr, "Successful")])
+        cols.extend([(pr, "Total Interaction"), (pr, "Unuccessful")])
         data[(pr, "Total Interaction")] = p_inter[pr]
-        data[(pr, "Successful")] = p_succ[pr]
+        data[(pr, "Unuccessful")] = p_succ[pr]
 
     # add totals across ranges (row total per design)
     data[("Total", "Total Interaction")] = p_inter.sum(axis=1)
-    data[("Total", "Successful")] = p_succ.sum(axis=1)
-    cols.extend([("Total", "Total Interaction"), ("Total", "Successful")])
+    data[("Total", "Unuccessful")] = p_succ.sum(axis=1)
+    cols.extend([("Total", "Total Interaction"), ("Total", "Unuccessful")])
 
     df_item = pd.DataFrame(data, index=p_inter.index)
     df_item = df_item.reindex(columns=pd.MultiIndex.from_tuples(cols))
@@ -410,7 +401,6 @@ except Exception as e:
 
 finally:
     cursor.close()
-
 
 
 # %%

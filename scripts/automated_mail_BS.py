@@ -97,11 +97,11 @@ def service_gmail_api():
 
 service = service_gmail_api()
 
-cc_emails = ["prakhar@goyoyo.ai", "nikhil@goyoyo.ai", "harshal@goyoyo.ai"]
-#cc_emails = []
+#cc_emails = ["prakhar@goyoyo.ai", "nikhil@goyoyo.ai", "harshal@goyoyo.ai"]
+cc_emails = []
 
-to_emails = ["mudita.gupta@bluestone.com"]
-#to_emails = ['adarsh@goyoyo.ai']
+#to_emails = ["mudita.gupta@bluestone.com"]
+to_emails = ['adarsh@goyoyo.ai']
 
 def create_html_message(sender, to, subject, html_content, cc_emails):
     """Create a message with HTML content for Gmail API."""

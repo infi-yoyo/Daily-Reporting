@@ -16,6 +16,7 @@ from google.oauth2.credentials import Credentials
 import sys
 import json
 from pathlib import Path
+import numpy as np
 
 
 # Define SCOPES

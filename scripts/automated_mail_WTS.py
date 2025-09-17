@@ -450,6 +450,8 @@ new_order = ['prod_category', 'WTD', 'MTD']
 df_new_order = merged_df[new_order] 
 df6 = df_new_order[df_new_order['prod_category'].notna() & (df_new_order['prod_category'].astype(str).str.strip() != '')]
 df6 = df6.sort_values(by='MTD', ascending=False)
+df6[["WTD","MTD"]] = df6[["WTD","MTD"]].applymap(lambda x: int(x) if pd.notna(x) and float(x).is_integer() else ('-' if pd.isna(x) else x))
+df6 = df6.sort_values(by='MTD', ascending=False)
 
 total_interactions = df2['interaction_count'][0]
 total_interactions_phone_number = len(df1)

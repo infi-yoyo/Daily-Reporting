@@ -195,6 +195,29 @@ end_of_week = start_of_week + pd.Timedelta(days=6)
 start_date_week = start_of_week.strftime('%Y-%m-%d')
 end_date_week = end_of_week.strftime('%Y-%m-%d')
 
+
+query1 = f"""
+
+    SELECT 
+	g.name as "ABM",
+	count(distinct(c.id)) as "Store Count",
+	count(distinct(b.sales_person_id)) as "Executive Count",
+	count(a.id) as "Total Interaction", 
+	COALESCE(SUM( (elem1->>'gms_pitched')::int ), 0) AS "GMS Pitched",
+	COALESCE(SUM( (elem1->>'gms_sold')::int ), 0) AS "GMS Sold"
+    FROM bluestone_interaction_flags as a 
+    LEFT JOIN interaction_processed AS b on a.interaction_id = b.id
+    LEFT JOIN store AS c ON b.store_id = c.id
+    left join area_business_manager as f on c.abm_id = f.id
+    left join users as g on f.user_id = g.id
+    LEFT JOIN LATERAL jsonb_array_elements(a.sop_new) AS elem1 ON TRUE
+    WHERE b.date = '{date_query}'  
+    and cast(b.duration as integer) > 180000
+    group by 1;
+    
+"""
+
+
 try:
     cursor.execute(query1)
     

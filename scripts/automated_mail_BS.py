@@ -514,7 +514,7 @@ template = """
 
     <p>Warm Regards!!</p>
 
-    <p>PFB the insights based on the interations that took place of {{ date }}</p>
+    <p>PFB the insights based on the customer interactions that took place on {{ date }}</p>
     
     <p><strong>GMS</strong>
     {{html_table1}}

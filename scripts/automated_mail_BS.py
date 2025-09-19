@@ -174,11 +174,6 @@ def create_connection():
 # Create connection
 connection = create_connection()
 
-
-
-# %%
-connection = create_connection()
-# Check if the connection is still open
 if connection.closed == 0:
     cursor = connection.cursor()
 
@@ -187,8 +182,9 @@ connection.rollback()
 
 # Set the date as current date - 2
 date_query = (datetime.now() - pd.Timedelta(days=2)).strftime('%Y-%m-%d')
+date_query_dt = datetime.strptime(date_query, "%Y-%m-%d")
 today = datetime.now()
-start_of_month = today.replace(day=1)
+start_of_month = date_query_dt.replace(day=1)
 start_date_month = start_of_month.strftime('%Y-%m-%d')
 date_2_days_ago = today - pd.Timedelta(days=2)
 start_of_week = date_2_days_ago - pd.Timedelta(days=date_2_days_ago.weekday())
@@ -218,6 +214,8 @@ query1 = f"""
     
 """
 
+# Print the query to see the actual SQL string
+#print(f"Executing SQL Query:\n{query1}")
 
 try:
     cursor.execute(query1)
@@ -231,23 +229,6 @@ try:
     df1 = pd.DataFrame(rows, columns=column_names)
     df1['GMS Pitched (%)'] = np.where(df1['Total Interaction'] > 0,((df1['GMS Pitched'] / df1['Total Interaction']) * 100).round(),0).astype(int)
     df1['GMS Sold (%)'] = np.where(df1['GMS Pitched'] > 0,((df1['GMS Sold'] / df1['GMS Pitched']) * 100).round(),0).astype(int)
-    df1 = df1.sort_values(by='Store Count', ascending=False)
-    totals = pd.DataFrame({
-    "ABM": ["Grand Total"],
-    "Store Count": [df1["Store Count"].sum()],
-    "Executive Count": [df1["Executive Count"].sum()],
-    "Total Interaction": [df1["Total Interaction"].sum()],
-    "GMS Pitched": [df1["GMS Pitched"].sum()],
-    "GMS Sold": [df1["GMS Sold"].sum()]
-    })
-
-# Calculate percentages based on totals
-    totals["GMS Pitched (%)"] = round((totals["GMS Pitched"] / totals["Total Interaction"]) * 100, 0).astype(int)
-    totals["GMS Sold (%)"] = round((totals["GMS Sold"] / totals["Total Interaction"]) * 100, 0).astype(int)
-
-    # Append to df1
-    df1 = pd.concat([df1, totals], ignore_index=True)
-    
     
 except Exception as e:
     print(f"Error encountered: {e}")
@@ -256,17 +237,22 @@ except Exception as e:
 
 query2 = f"""
 
-   select
-  count(interaction_code) as "Total Interaction",
-  sum(case when a.sales_outcome = 'sale_unsuccessful' then 1 else 0 end) as "Unuccessful Interactions",
-  (elem1 ->> 'item_type') as "Design",
-  (elem1 ->> 'price_range') as "Price Range"
-  FROM bluestone_interaction_flags as a 
-  LEFT JOIN interaction_processed AS b on a.interaction_id = b.id
-  LEFT JOIN LATERAL jsonb_array_elements(a.new_products_tried) AS elem1 ON TRUE
-  WHERE b.date = '{date_query}'  
-  and cast(b.duration as integer) > 180000
-  group by 3,4;
+  SELECT 
+	g.name as "ABM",
+	count(distinct(c.id)) as "Store Count",
+	count(distinct(b.sales_person_id)) as "Executive Count",
+	count(a.id) as "Total Interaction", 
+	COALESCE(SUM( (elem1->>'gms_pitched')::int ), 0) AS "GMS Pitched",
+	COALESCE(SUM( (elem1->>'gms_sold')::int ), 0) AS "GMS Sold"
+    FROM bluestone_interaction_flags as a 
+    LEFT JOIN interaction_processed AS b on a.interaction_id = b.id
+    LEFT JOIN store AS c ON b.store_id = c.id
+    left join area_business_manager as f on c.abm_id = f.id
+    left join users as g on f.user_id = g.id
+    LEFT JOIN LATERAL jsonb_array_elements(a.sop_new) AS elem1 ON TRUE
+    WHERE b.date between '{start_of_month}' and '{date_query}'  
+    and cast(b.duration as integer) > 180000
+    group by 1;
     
 """
 
@@ -283,139 +269,11 @@ try:
     column_names = [desc[0] for desc in cursor.description]
     # Create the DataFrame using data and column names
     df2 = pd.DataFrame(rows, columns=column_names)
+    df2['MTD GMS Pitched (%)'] = np.where(df2['Total Interaction'] > 0,((df2['GMS Pitched'] / df2['Total Interaction']) * 100).round(),0).astype(int)
+    df2['MTD GMS Sold (%)'] = np.where(df2['GMS Pitched'] > 0,((df2['GMS Sold'] / df2['GMS Pitched']) * 100).round(),0).astype(int)
+    df2 = df2.sort_values(by='MTD GMS Sold (%)', ascending=False)
+    df3 = df2[['ABM', 'MTD GMS Pitched (%)', 'MTD GMS Sold (%)']]   
     
-    price_order = ["<20K", "20K - 50K", "50K - 1L", "1L - 2L", "2L - 5L", "5L - 10L", ">10L"]
-
-    # normalize some common variants
-    norm_map = {
-        "<20K": "<20K", "20K-50K": "20K - 50K", "20k-50k": "20K - 50K",
-        "50K-1L": "50K - 1L", "50k-1L": "50K - 1L",
-        "1L-2L": "1L - 2L", "2L-5L": "2L - 5L", "5L-10L": "5L - 10L",
-        ">10L": ">10L"
-    }
-    df2 = df2.copy()
-    df2["price_range"] = df2["Price Range"].map(lambda x: norm_map.get(str(x).strip(), x))
-
-    # keep only valid ranges
-    dfw = df2[df2["price_range"].isin(price_order)].copy()
-
-    # pivots
-    p_inter = pd.pivot_table(
-        dfw, index="Design", columns="price_range",
-        values="Total Interaction", aggfunc="sum", fill_value=0
-    ).reindex(columns=price_order, fill_value=0)
-
-    p_succ = pd.pivot_table(
-        dfw, index="Design", columns="price_range",
-        values="Unuccessful Interactions", aggfunc="sum", fill_value=0
-    ).reindex(columns=price_order, fill_value=0)
-
-    # build multiindex columns
-    cols, data = [], {}
-    for pr in price_order:
-        cols.extend([(pr, "Total Interaction"), (pr, "Unuccessful")])
-        data[(pr, "Total Interaction")] = p_inter[pr]
-        data[(pr, "Unuccessful")] = p_succ[pr]
-
-    # add totals across ranges (row total per design)
-    data[("Total", "Total Interaction")] = p_inter.sum(axis=1)
-    data[("Total", "Unuccessful")] = p_succ.sum(axis=1)
-    cols.extend([("Total", "Total Interaction"), ("Total", "Unuccessful")])
-
-    df_design = pd.DataFrame(data, index=p_inter.index)
-    df_design = df_design.reindex(columns=pd.MultiIndex.from_tuples(cols))
-    df_design.index.name = "Design"
-
-    # add one grand total row (sum across all designs)
-    grand_total = df_design.sum(numeric_only=True)
-    df_design.loc["Grand Total"] = grand_total
-    df_design = sort_by_total_interaction(df_design, ascending=False)
-    df_design = df_design.mask(df_design.eq(0), '-')
-    
-
-    
-except Exception as e:
-    print(f"Error encountered: {e}")
-    connection.rollback()  # Rollback the transaction if an error occurs
-
-
-query3 = f"""
-
-   select
-  count(interaction_code) as "Total Interaction",
-  sum(case when a.sales_outcome = 'sale_unsuccessful' then 1 else 0 end) as "Unsuccessful Interactions",
-  (elem1 ->> 'material') as "Item",
-  (elem1 ->> 'price_range') as "Price Range"
-  FROM bluestone_interaction_flags as a 
-  LEFT JOIN interaction_processed AS b on a.interaction_id = b.id
-  LEFT JOIN LATERAL jsonb_array_elements(a.new_products_tried) AS elem1 ON TRUE
-  WHERE b.date = '{date_query}'  
-  and cast(b.duration as integer) > 180000
-  group by 3,4;
-    
-"""
-
-# Print the query to see the actual SQL string
-#print(f"Executing SQL Query:\n{query1}")
-
-try:
-    cursor.execute(query3)
-    
-    # Fetch the data
-    rows = cursor.fetchall()
-    
-    # Extract column names
-    column_names = [desc[0] for desc in cursor.description]
-    # Create the DataFrame using data and column names
-    df3 = pd.DataFrame(rows, columns=column_names)
-    
-    price_order = ["<20K", "20K - 50K", "50K - 1L", "1L - 2L", "2L - 5L", "5L - 10L", ">10L"]
-
-# normalize some common variants
-    norm_map = {
-        "<20K": "<20K", "20K-50K": "20K - 50K", "20k-50k": "20K - 50K",
-        "50K-1L": "50K - 1L", "50k-1L": "50K - 1L",
-        "1L-2L": "1L - 2L", "2L-5L": "2L - 5L", "5L-10L": "5L - 10L",
-        ">10L": ">10L"
-    }
-    df3 = df3.copy()
-    df3["price_range"] = df3["Price Range"].map(lambda x: norm_map.get(str(x).strip(), x))
-
-    # keep only valid ranges
-    dfw = df3[df3["price_range"].isin(price_order)].copy()
-
-    # pivots
-    p_inter = pd.pivot_table(
-        dfw, index="Item", columns="price_range",
-        values="Total Interaction", aggfunc="sum", fill_value=0
-    ).reindex(columns=price_order, fill_value=0)
-
-    p_succ = pd.pivot_table(
-        dfw, index="Item", columns="price_range",
-        values="Unsuccessful Interactions", aggfunc="sum", fill_value=0
-    ).reindex(columns=price_order, fill_value=0)
-
-    # build multiindex columns
-    cols, data = [], {}
-    for pr in price_order:
-        cols.extend([(pr, "Total Interaction"), (pr, "Unuccessful")])
-        data[(pr, "Total Interaction")] = p_inter[pr]
-        data[(pr, "Unuccessful")] = p_succ[pr]
-
-    # add totals across ranges (row total per design)
-    data[("Total", "Total Interaction")] = p_inter.sum(axis=1)
-    data[("Total", "Unuccessful")] = p_succ.sum(axis=1)
-    cols.extend([("Total", "Total Interaction"), ("Total", "Unuccessful")])
-
-    df_item = pd.DataFrame(data, index=p_inter.index)
-    df_item = df_item.reindex(columns=pd.MultiIndex.from_tuples(cols))
-    df_item.index.name = "Item"
-
-    # add one grand total row (sum across all designs)
-    grand_total = df_item.sum(numeric_only=True)
-    df_item.loc["Grand Total"] = grand_total
-    df_item = sort_by_total_interaction(df_item, ascending=False)
-    df_item = df_item.mask(df_item.eq(0), '-')
     
 except Exception as e:
     print(f"Error encountered: {e}")
@@ -426,39 +284,44 @@ except Exception as e:
 finally:
     cursor.close()
 
+merged_df = df3.merge(df1, on='ABM', how='left')
+merged_df = merged_df.map(lambda x: '-' if pd.isna(x) else (int(x) if isinstance(x, (int, float)) and float(x).is_integer() else x))
+merged_df = merged_df.sort_values(by='MTD GMS Sold (%)', ascending=False)
+totals = pd.DataFrame({
+    "ABM": ["Grand Total"],
+    "Store Count": [df1["Store Count"].sum()],
+    "Executive Count": [df1["Executive Count"].sum()],
+    "Total Interaction": [df1["Total Interaction"].sum()],
+    "GMS Pitched": [df1["GMS Pitched"].sum()],
+    "GMS Sold": [df1["GMS Sold"].sum()],
+    "MTD total Interaction": [df2["Total Interaction"].sum()],
+    "MTD GMS Pitched": [df2["GMS Pitched"].sum()],
+    "MTD GMS Sold": [df2["GMS Sold"].sum()]
+    })
 
-# %%
+# Calculate percentages based on totals
+totals["GMS Pitched (%)"] = round((totals["GMS Pitched"] / totals["Total Interaction"]) * 100, 0).astype(int)
+totals["GMS Sold (%)"] = round((totals["GMS Sold"] / totals["Total Interaction"]) * 100, 0).astype(int)
+totals["MTD GMS Pitched (%)"] = round((totals["MTD GMS Pitched"] / totals["MTD total Interaction"]) * 100, 0).astype(int)
+totals["MTD GMS Sold (%)"] = round((totals["MTD GMS Sold"] / totals["MTD GMS Pitched"]) * 100, 0).astype(int)
+
+# Append to df1
+merged_df = pd.concat([merged_df, totals], ignore_index=True)
+new_order = ['ABM', 'MTD GMS Pitched (%)', 'MTD GMS Sold (%)', 'Store Count', 'Executive Count', 'Total Interaction', 'GMS Pitched', 'GMS Pitched (%)', 'GMS Sold', 'GMS Sold (%)']
+merged_df = merged_df[new_order]
+
 template = """
+
 <html>
 <head>
     <style>
-        body {
+         body {
             font-family: Arial, sans-serif;
             line-height: 1.6;
             color: #333;
-            max-width: 800px;
+            max-width: 1000px;
             margin: 0 auto;
             padding: 20px;
-        }
-        
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            margin: 20px 0;
-            font-size: 14px;
-        }
-        
-        th, td {
-            border: 1px solid #ddd;
-            padding: 12px;
-            text-align: left;
-            vertical-align: top;
-        }
-        
-        th {
-            background-color: #f8f9fa;
-            font-weight: bold;
-            color: #495057;
         }
         
         tr:nth-child(even) {
@@ -503,10 +366,6 @@ template = """
             margin: 20px 0;
             border-radius: 4px;
         }
-        
-        p {
-            margin: 15px 0;
-        }
     </style>
 </head>
 <body>
@@ -514,17 +373,10 @@ template = """
 
     <p>Warm Regards!!</p>
 
-    <p>PFB the insights based on the customer interactions that took place on {{ date }}</p>
+    <p>PFB the GMS pitched and GMS Sold on {{ date }} compared with MTD ( {{start_date_month}} to {{date}})</p>
     
-    <p><strong>GMS</strong>
     {{html_table1}}
 
-    <p><strong>Conversion Rate by Design</strong>
-    {{html_table2}}
-
-    <p><strong>Conversion Rate by Item</strong>
-    {{html_table3}}
-    
     <div class="insight">
         <p>You can look for detailed analysis regarding these interactions on the dashboard</p>
         <p><strong>Link to dashboard:</strong> https://pilot.goyoyo.ai/ </p>
@@ -538,6 +390,38 @@ template = """
 
 """
 
+# Build HTML manually for df1
+cols = merged_df.columns
+rows_html = []
+
+for _, row in merged_df.iterrows():
+    is_total = str(row["ABM"]).strip().lower() == "grand total"
+    cells = []
+    for col in cols:
+        style = "text-align:center;border:1px solid #000;"
+        if is_total:
+            style += "font-weight:600;"  # highlight Grand Total row
+
+        if col == "MTD GMS Pitched (%)":
+            style += "background-color:#E3F2FD;color:#000;"       # pastel blue
+            cells.append(f"<td style='{style}'>{row[col]}</td>")
+        elif col == "MTD GMS Sold (%)":
+            style += "background-color:#E8F5E9;color:#000;"       # pastel green
+            cells.append(f"<td style='{style}'>{row[col]}</td>")
+        else:
+            cells.append(f"<td style='{style}'>{row[col]}</td>")
+    rows_html.append("<tr>" + "".join(cells) + "</tr>")
+
+html_table1 = ( 
+    "<table border='1' cellpadding='6' cellspacing='0' " 
+    "style='border-collapse:collapse;font-family:Arial,sans-serif;font-size:13px;width:100%;'>" 
+    "<thead><tr>" 
+    + "".join([f"<th>{c}</th>" for c in cols]) 
+    + "</tr></thead><tbody>" 
+    + "".join(rows_html) + "</tbody></table>" 
+    )
+
+
 email_template = Template(template)
 email_content = email_template.render(
     #name=row['name'],  # Replace with dynamic client name if needed
@@ -545,9 +429,7 @@ email_content = email_template.render(
     start_date_month=start_date_month,
     start_date_week = start_date_week,
     end_date_week = end_date_week,
-    html_table1 = df1.to_html(index=False),
-    html_table2 = df_design.reset_index().rename(columns={'index':'Design'}).to_html(index=False),
-    html_table3 = df_item.reset_index().rename(columns={'index':'Item'}).to_html(index=False)
+    html_table1 = html_table1
     )
 
 
@@ -556,11 +438,7 @@ subject_template = 'BlueStone <> YOYO AI - Actionable Insights - {{ date_query }
 # Render the subject using Jinja2
 subject = Template(subject_template).render(date_query=date_query)
 
-
-
-
-
-
-# %%
 # Send the email
 send_html_email_gmail_api(service, 'adarsh@goyoyo.ai', to_emails, cc_emails, subject, email_content)
+
+

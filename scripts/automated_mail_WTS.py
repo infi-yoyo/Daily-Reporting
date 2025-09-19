@@ -164,7 +164,6 @@ connection = create_connection()
 
 
 
-# %%
 connection = create_connection()
 # Check if the connection is still open
 if connection.closed == 0:
@@ -400,11 +399,12 @@ except Exception as e:
     print(f"Error encountered: {e}")
     connection.rollback()  # Rollback the transaction if an error occurs    
 
+
 query5 = f"""
 
 SELECT
-(elem1->>'sub_category') AS rlos_Category,
-count(distinct b.interaction_code) as Count
+(elem1->>'sub_category') AS "RLOS Category",
+count(distinct b.interaction_code) as "Interaction Count"
 FROM wakefit_interaction_flags AS a
 LEFT JOIN interaction_processed AS b ON a.interaction_id = b.id
 LEFT JOIN sales_person AS c ON b.sales_person_id = c.id
@@ -433,7 +433,7 @@ try:
     column_names = [desc[0] for desc in cursor.description]
     # Create the DataFrame using data and column names
     df7 = pd.DataFrame(rows, columns=column_names)
-    df7["%"] = ((df7["count"] / df7["count"].sum()) * 100).round().astype(int)
+    df7["%"] = ((df7["Interaction Count"] / df7["Interaction Count"].sum()) * 100).round().astype(int)
 
 
         
@@ -449,15 +449,12 @@ merged_df = merged_df.rename(columns={'count_x': 'MTD', 'count_y': 'WTD'})
 new_order = ['prod_category', 'WTD', 'MTD']
 df_new_order = merged_df[new_order] 
 df6 = df_new_order[df_new_order['prod_category'].notna() & (df_new_order['prod_category'].astype(str).str.strip() != '')]
-df6 = df6.sort_values(by='MTD', ascending=False)
 df6[["WTD","MTD"]] = df6[["WTD","MTD"]].applymap(lambda x: int(x) if pd.notna(x) and float(x).is_integer() else ('-' if pd.isna(x) else x))
 df6 = df6.sort_values(by='MTD', ascending=False)
 
 total_interactions = df2['interaction_count'][0]
 total_interactions_phone_number = len(df1)
 
-
-# %%
 template = """
 
 <!DOCTYPE html>
@@ -580,6 +577,7 @@ template = """
         
         .chart-image {
             height: inherit;
+            width: inherit;
         }
         
         .chart-container img {
@@ -672,17 +670,16 @@ template = """
     <p><strong>Note:</strong> These customer interactions lasted for more than three minutes.</p>
 
     <p>Regards,<br>Adarsh.</p>
-
 </body>
 </html>
-
+                    
 """
 
 
 
 
 # Prepare data
-labels = df7["rlos_category"].tolist()
+labels = df7["RLOS Category"].tolist()
 values = df7["%"].astype(float).tolist()
 
 # Build chart config for QuickChart (same schema as Chart.js)
@@ -694,7 +691,7 @@ config = {
             "data": values,
             "backgroundColor": [
                 "#2F78B7", "#F7901E", "#2FA84F", "#E33E34", "#8F63C6",
-                "#FFCD56", "#4BC0C0", "#C9CBCF", "#8FBC8F", "#DDA0DD"
+                "#FFCD56", "#4BC0C0", "#C9CBCF", "#89CA89", "#DDA0DD"
             ][:len(labels)],
             "borderColor": "#FFFFFF",
             "borderWidth": 3,
@@ -704,17 +701,23 @@ config = {
     "options": {
         "plugins": {
             "legend": {
-                "position": "left",   
+                "position": "bottom",   
                 "align": "center",    
                 "labels": {
-                    "boxWidth": 14,
-                    "font": { "size": 13 }
+                    "boxWidth": 20,
+                    "font": { "size": 20 }
                 }
             },
-            "datalabels": { "display": False }
+            "datalabels": { "display": True,               # show values
+                "color": "white",              # white text
+                "font": {
+                    "weight": "bold",          # bold font
+                    "size": 50                 # adjust size as needed
+                }
+            } 
         },
         "layout": {
-            "padding": { "left": 20, "right": 20 }  # give breathing room
+            "padding": { "left": 10, "right": 10 }  # give breathing room
         },
         "cutout": "50%",
         "rotation": -0.5 * 3.14159,
@@ -727,8 +730,8 @@ config = {
 base = "https://quickchart.io/chart"
 params = {
     "c": json.dumps(config, separators=(",", ":")),  # compact JSON
-    "w": 800,                                        # width px
-    "h": 600,                                        # height px
+    "w": 1000,                                        # width px
+    "h": 800,                                        # height px
     "devicePixelRatio": 2,                           # crisp in email clients
     "backgroundColor": "white"   ,                    # or "transparent"
     "version": "4" 
@@ -759,6 +762,7 @@ subject = Template(subject_template).render(date_query=date_query)
 
 # Send the email
 send_html_email_gmail_api(service, 'adarsh@goyoyo.ai', to_emails, cc_emails, subject, email_content)
+
 
 
 

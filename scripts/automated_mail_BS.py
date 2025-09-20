@@ -98,11 +98,11 @@ def service_gmail_api():
 
 service = service_gmail_api()
 
-cc_emails = ["prakhar@goyoyo.ai", "nikhil@goyoyo.ai", "harshal@goyoyo.ai"]
-#cc_emails = []
+#cc_emails = ["prakhar@goyoyo.ai", "nikhil@goyoyo.ai", "harshal@goyoyo.ai"]
+cc_emails = []
 
-to_emails = ["mudita.gupta@bluestone.com"]
-#to_emails = ['adarsh@goyoyo.ai']
+#to_emails = ["mudita.gupta@bluestone.com"]
+to_emails = ['adarsh@goyoyo.ai']
 
 def create_html_message(sender, to, subject, html_content, cc_emails):
     """Create a message with HTML content for Gmail API."""
@@ -285,7 +285,7 @@ finally:
     cursor.close()
 
 merged_df = df3.merge(df1, on='ABM', how='left')
-merged_df = merged_df.map(lambda x: '-' if pd.isna(x) else (int(x) if isinstance(x, (int, float)) and float(x).is_integer() else x))
+merged_df = merged_df.applymap(lambda x: '-' if pd.isna(x) else (int(x) if isinstance(x, (int, float)) and float(x).is_integer() else x))
 merged_df = merged_df.sort_values(by='MTD GMS Sold (%)', ascending=False)
 totals = pd.DataFrame({
     "ABM": ["Grand Total"],

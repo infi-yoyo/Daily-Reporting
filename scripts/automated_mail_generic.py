@@ -361,7 +361,7 @@ for brand in brands:
    
     print(brand)
     brand = "_".join(brand.lower().split())
-    cc_emails = ["prakhar@goyoyo.ai", "nikhil@goyoyo.ai", "harshal@goyoyo.ai"]
+    cc_emails = ["prakhar@goyoyo.ai", "nikhil@goyoyo.ai", "harshal@goyoyo.ai", "adarsh@goyoyo.ai"]
     #cc_emails = []
     if brand == "sri_jagdamba_pearls":
         to_emails = ['deepak.kumar@jpearls.com', 'avanish@jpearls.com']
@@ -739,5 +739,5 @@ for brand in brands:
         brand = brand.replace("_", " ").title()
         )
 
-    send_html_email_gmail_api(service, 'adarsh@goyoyo.ai', to_emails, cc_emails, subject, email_content)
+    send_html_email_gmail_api(service, 'reports@goyoyo.ai', to_emails, cc_emails, subject, email_content)
     

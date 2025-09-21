@@ -98,7 +98,7 @@ def service_gmail_api():
 
 service = service_gmail_api()
 
-cc_emails = ["prakhar@goyoyo.ai", "nikhil@goyoyo.ai", "harshal@goyoyo.ai"]
+cc_emails = ["prakhar@goyoyo.ai", "nikhil@goyoyo.ai", "harshal@goyoyo.ai", "adarsh@goyoyo.ai"]
 #cc_emails = []
 
 to_emails = ["mudita.gupta@bluestone.com"]
@@ -439,6 +439,6 @@ subject_template = 'BlueStone <> YOYO AI - Actionable Insights - {{ date_query }
 subject = Template(subject_template).render(date_query=date_query)
 
 # Send the email
-send_html_email_gmail_api(service, 'adarsh@goyoyo.ai', to_emails, cc_emails, subject, email_content)
+send_html_email_gmail_api(service, 'reports@goyoyo.ai', to_emails, cc_emails, subject, email_content)
 
 

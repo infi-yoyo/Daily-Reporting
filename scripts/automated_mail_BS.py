@@ -17,6 +17,8 @@ import sys
 import json
 from pathlib import Path
 import numpy as np
+import math
+
 
 
 # Define SCOPES
@@ -390,27 +392,115 @@ template = """
 
 """
 
-# Build HTML manually for df1
-cols = merged_df.columns
-rows_html = []
+def to_number(x):
+    if pd.isna(x): return np.nan
+    if isinstance(x, str):
+        s = x.strip().replace(',', '')
+        if s == '-' or s == '': return np.nan
+        if s.endswith('%'):
+            s = s[:-1]
+        try:
+            return float(s)
+        except ValueError:
+            return np.nan
+    if isinstance(x, (int, float)):
+        return float(x)
+    return np.nan
 
+def hex_to_rgb(h):  # "#RRGGBB" -> (r,g,b)
+    h = h.lstrip('#')
+    return tuple(int(h[i:i+2], 16) for i in (0, 2, 4))
+
+def rgb_to_hex(rgb):  # (r,g,b) -> "#RRGGBB"
+    return "#{:02X}{:02X}{:02X}".format(*rgb)
+
+def lerp(a, b, t):  # clamp + interpolate
+    t = 0.0 if math.isnan(t) else max(0.0, min(1.0, t))
+    return a + (b - a) * t
+
+def mix_hex(c_low, c_high, t):
+    r1,g1,b1 = hex_to_rgb(c_low)
+    r2,g2,b2 = hex_to_rgb(c_high)
+    r = int(round(lerp(r1, r2, t)))
+    g = int(round(lerp(g1, g2, t)))
+    b = int(round(lerp(b1, b2, t)))
+    return rgb_to_hex((r,g,b))
+
+def norm(value, vmin, vmax):
+    if np.isnan(value): return np.nan
+    if vmin == vmax:    return 1.0  # flat column -> show as max color
+    return (value - vmin) / (vmax - vmin)
+
+def ideal_text_color(bg_hex):
+    # simple luminance-based contrast choice
+    r,g,b = hex_to_rgb(bg_hex)
+    luminance = 0.2126*r + 0.7152*g + 0.0722*b
+    return "#000" if luminance > 160 else "#FFF"
+
+# --- choose palettes (light → rich) ---------------------------------------
+# You can tweak these two-stop gradients anytime.
+LOW, HIGH = "#F1E76EFD", "#2E7D32"
+
+
+# --- precompute numeric min/max for both columns --------------------------
+col_pitch = "MTD GMS Pitched (%)"
+col_sold  = "MTD GMS Sold (%)"
+
+mask_no_total = merged_df["ABM"].astype(str).str.strip().str.lower() != "grand total"
+
+_pitch_vals = merged_df.loc[mask_no_total, col_pitch].map(to_number)
+_sold_vals  = merged_df.loc[mask_no_total, col_sold].map(to_number)
+
+pitch_vmin = float(np.nanmin(_pitch_vals)) if np.isfinite(np.nanmin(_pitch_vals)) else 0.0
+pitch_vmax = float(np.nanmax(_pitch_vals)) if np.isfinite(np.nanmax(_pitch_vals)) else 100.0
+sold_vmin  = float(np.nanmin(_sold_vals))  if np.isfinite(np.nanmin(_sold_vals))  else 0.0
+sold_vmax  = float(np.nanmax(_sold_vals))  if np.isfinite(np.nanmax(_sold_vals))  else 100.0
+
+# --- build rows with heatmaps ---------------------------------------------
+rows_html = []  # (keep your existing variable)
+cols = merged_df.columns
 for _, row in merged_df.iterrows():
     is_total = str(row["ABM"]).strip().lower() == "grand total"
     cells = []
     for col in cols:
         style = "text-align:center;border:1px solid #000;"
+        cell_value = row[col]
         if is_total:
-            style += "font-weight:600;"  # highlight Grand Total row
+            style += "font-weight:600;"
+            if col in [col_pitch, col_sold]:
+                val = to_number(cell_value)
+                if not pd.isna(val):
+                    cell_value = f"{val:.0f}%"
+            cells.append(f"<td style='{style}'>{cell_value}</td>")
+            continue
+        if col == col_pitch:
+            val = to_number(cell_value)
+            t = norm(val, pitch_vmin, pitch_vmax)
+            if not np.isnan(t):
+                bg = mix_hex(LOW, HIGH, t)
+                fg = ideal_text_color(bg)
+                style += f"background-color:{bg};color:{fg};"
+            if not pd.isna(val):
+                cell_value = f"{val:.0f}%"
+        elif col == col_sold:
+            val = to_number(cell_value)
+            t = norm(val, sold_vmin, sold_vmax)
+            if not np.isnan(t):
+                bg = mix_hex(LOW, HIGH, t)
+                fg = ideal_text_color(bg)
+                style += f"background-color:{bg};color:{fg};"
+            if not pd.isna(val):
+                cell_value = f"{val:.0f}%"
+        elif col == "GMS Pitched (%)":
+            if not pd.isna(val):
+                cell_value = f"{val:.0f}%"
+        elif col == "GMS Sold (%)":
+            if not pd.isna(val):
+                cell_value = f"{val:.0f}%"
 
-        if col == "MTD GMS Pitched (%)":
-            style += "background-color:#E3F2FD;color:#000;"       # pastel blue
-            cells.append(f"<td style='{style}'>{row[col]}</td>")
-        elif col == "MTD GMS Sold (%)":
-            style += "background-color:#E8F5E9;color:#000;"       # pastel green
-            cells.append(f"<td style='{style}'>{row[col]}</td>")
-        else:
-            cells.append(f"<td style='{style}'>{row[col]}</td>")
+        cells.append(f"<td style='{style}'>{cell_value}</td>")
     rows_html.append("<tr>" + "".join(cells) + "</tr>")
+
 
 html_table1 = ( 
     "<table border='1' cellpadding='6' cellspacing='0' " 
@@ -439,6 +529,4 @@ subject_template = 'BlueStone <> YOYO AI - Actionable Insights - {{ date_query }
 subject = Template(subject_template).render(date_query=date_query)
 
 # Send the email
-send_html_email_gmail_api(service, 'reports@goyoyo.ai', to_emails, cc_emails, subject, email_content)
-
-
+send_html_email_gmail_api(service, 'report@goyoyo.ai', to_emails, cc_emails, subject, email_content)

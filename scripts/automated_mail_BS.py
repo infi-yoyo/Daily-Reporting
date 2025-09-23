@@ -100,11 +100,11 @@ def service_gmail_api():
 
 service = service_gmail_api()
 
-cc_emails = ["prakhar@goyoyo.ai", "nikhil@goyoyo.ai", "harshal@goyoyo.ai", "adarsh@goyoyo.ai"]
-#cc_emails = []
+#cc_emails = ["prakhar@goyoyo.ai", "nikhil@goyoyo.ai", "harshal@goyoyo.ai", "adarsh@goyoyo.ai"]
+cc_emails = []
 
-to_emails = ["mudita.gupta@bluestone.com", "gaurav.sachdeva@bluestone.com", "kshitij.arora@bluestone.com", "chaitanya.raheja@bluestone.com", "chaitanya.raheja@bluestone.com"]
-#to_emails = ['adarsh@goyoyo.ai']
+#to_emails = ["mudita.gupta@bluestone.com", "gaurav.sachdeva@bluestone.com", "kshitij.arora@bluestone.com", "chaitanya.raheja@bluestone.com", "anubha.rustagi@bluestone.com"]
+to_emails = ['adarsh@goyoyo.ai']
 
 def create_html_message(sender, to, subject, html_content, cc_emails):
     """Create a message with HTML content for Gmail API."""
@@ -379,6 +379,9 @@ template = """
     
     {{html_table1}}
 
+	<p><b> GMS Pitched (%) = (GMS Pitched/ Total Interaction) * 100 </b></p>
+    <p><b> GMS Sold (%) = (GMS Sold / GMS Pitched) * 100 </b></p>
+
     <div class="insight">
         <p>You can look for detailed analysis regarding these interactions on the dashboard</p>
         <p><strong>Link to dashboard:</strong> https://pilot.goyoyo.ai/ </p>
@@ -445,6 +448,8 @@ LOW, HIGH = "#F1E76EFD", "#2E7D32"
 # --- precompute numeric min/max for both columns --------------------------
 col_pitch = "MTD GMS Pitched (%)"
 col_sold  = "MTD GMS Sold (%)"
+col_pitch_daily = "GMS Pitched (%)"
+col_sold_daily  = "GMS Sold (%)"
 
 mask_no_total = merged_df["ABM"].astype(str).str.strip().str.lower() != "grand total"
 
@@ -467,7 +472,7 @@ for _, row in merged_df.iterrows():
         cell_value = row[col]
         if is_total:
             style += "font-weight:600;"
-            if col in [col_pitch, col_sold]:
+            if col in [col_pitch, col_sold, col_pitch_daily, col_sold_daily]:
                 val = to_number(cell_value)
                 if not pd.isna(val):
                     cell_value = f"{val:.0f}%"
@@ -491,10 +496,12 @@ for _, row in merged_df.iterrows():
                 style += f"background-color:{bg};color:{fg};"
             if not pd.isna(val):
                 cell_value = f"{val:.0f}%"
-        elif col == "GMS Pitched (%)":
+        elif col == col_pitch_daily:
+            val = to_number(cell_value)
             if not pd.isna(val):
                 cell_value = f"{val:.0f}%"
-        elif col == "GMS Sold (%)":
+        elif col == col_sold_daily:
+            val = to_number(cell_value)
             if not pd.isna(val):
                 cell_value = f"{val:.0f}%"
 

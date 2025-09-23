@@ -1,0 +1,72 @@
+name: Generic Adherence Report
+
+on:
+  schedule:
+    # Runs daily at 04:00 AM UTC (09:30 AM IST)
+    - cron: '0 4 * * *'
+  workflow_dispatch:  # Allows manual triggering
+
+jobs:
+  send-daily-report:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.9'
+
+    - name: Cache pip dependencies
+      uses: actions/cache@v3
+      with:
+        path: ~/.cache/pip
+        key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
+        restore-keys: |
+          ${{ runner.os }}-pip-
+
+    - name: Install Python dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+
+    - name: Create credentials and token files in scripts/
+      run: |
+        echo "Checking if GOOGLE_CREDENTIALS and GOOGLE_TOKEN secrets exist..."
+        if [ -z "${{ secrets.GOOGLE_CREDENTIALS }}" ]; then
+          echo "❌ Missing GOOGLE_CREDENTIALS secret"
+          exit 1
+        fi
+        if [ -z "${{ secrets.GOOGLE_TOKEN }}" ]; then
+          echo "❌ Missing GOOGLE_TOKEN secret"
+          exit 1
+        fi
+
+        mkdir -p scripts  # Ensure directory exists
+
+        echo '${{ secrets.GOOGLE_CREDENTIALS }}' > scripts/credentials.json
+        echo '${{ secrets.GOOGLE_TOKEN }}' > scripts/token.json
+
+        echo "✓ credentials.json and token.json created in scripts/"
+
+        python -c "import json; json.load(open('scripts/credentials.json'))" || (echo 'Invalid credentials format' && exit 1)
+        python -c "import json; json.load(open('scripts/token.json'))" || (echo 'Invalid token format' && exit 1)
+
+    - name: Run daily report script
+      working-directory: scripts
+      env:
+        DB_HOST: ${{ secrets.DB_HOST }}
+        DB_PORT: ${{ secrets.DB_PORT }}
+        DB_USER: ${{ secrets.DB_USER }}
+        DB_PASS: ${{ secrets.DB_PASS }}
+        DB_NAME: ${{ secrets.DB_NAME }}
+        GITHUB_ACTIONS: true
+      run: |
+        python generic_adherence_report.py
+
+    - name: Clean up sensitive files
+      if: always()
+      run: |
+        rm -f scripts/credentials.json scripts/token.json

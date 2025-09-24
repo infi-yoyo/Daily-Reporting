@@ -375,7 +375,7 @@ for brand, details in brand_details.items():
             ((df1["Total Blank Files"].astype(float) / df1["Total Files"].astype(float))*100).round(0),
             np.nan   # or 0 if you prefer
             )
-        df1 = df1.map(lambda x: '' if pd.isna(x) else (int(x) if isinstance(x, (int, float)) and float(x).is_integer() else x))
+        df1 = df1.applymap(lambda x: '' if pd.isna(x) else (int(x) if isinstance(x, (int, float)) and float(x).is_integer() else x))
         order = ["Store Name", "Staff Name", "Device Active", "Total Recorded Duration", "Recoded Hour Adherence (%)", "Total Files", "Total Valid Files", "Total Blank Files", "Total Blank files (%)", "Shift Duration"]
         df1 = df1[order]
         df1 = df1.sort_values(by=["Store Name"], ascending=True).reset_index(drop=True)

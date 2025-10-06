@@ -312,7 +312,7 @@ for brand, details in brand_details.items():
             c.name as store_name,
             ROW_NUMBER() OVER (
             PARTITION BY a.sp_id 
-            ORDER BY (COALESCE(a.end_date, DATE '2099-12-31') = DATE '2025-09-15') DESC, 
+            ORDER BY (COALESCE(a.end_date, DATE '2099-12-31') = DATE '{date_query}') DESC, 
             a.start_date DESC     
             ) AS rn
         from salesperson_stores as a

@@ -102,7 +102,7 @@ service = service_gmail_api()
 cc_emails = ["prakhar@goyoyo.ai", "nikhil@goyoyo.ai", "harshal@goyoyo.ai", "adarsh@goyoyo.ai"]
 #cc_emails = []
 
-to_emails = ['adnan.kazim@wakefit.co', 'santhosh.hd@wakefit.co', 'dibyendu.panda@wakefit.co']
+to_emails = ['adnan.kazim@wakefit.co', 'santhosh.hd@wakefit.co', 'dibyendu.panda@wakefit.co', 'ambarish.varadan@wakefit.co', 'mohit.goyal@wakefit.co']
 #to_emails = ['adarsh@goyoyo.ai']
 
 def create_html_message(sender, to, subject, html_content, cc_emails):

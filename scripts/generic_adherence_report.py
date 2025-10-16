@@ -180,16 +180,59 @@ template1 = """
 
     <p>Warm Regards!!</p>
 
-    <p> The average same day data upload adherence for {{date}} is <b>{{avg_adherence}}%</b> across <b>{{active_Se}}</b> SEs out of total <b>{{total_se}}</b> device wearing SEs.</p>
+    <strong>Adherence Report - {{date}}</strong>
+
+    <p>The average same day data upload adherence for {{date}} is <b>{{avg_adherence}}%</b> across <b>{{active_Se}}</b> SEs out of total <b>{{total_se}}</b> device wearing SEs.</p>
 
     <p>PFB the tabulur view of same day data upload adherence:</p>
 
-    {{html_table}}
+    {{html_table1}}
 
-    <p>Record Hour Adherence (%) = Total Recorded Duration / Shift Duration * 100 </p>
+    <p> Where, D-1 stands for {{date}} and so on. Week starts from Sunday to Saturday. Week 1 starts from 1st of every month <br>
 
-    <p> Note: We aim for atleast 85% record hour adherence for each SE.</p>
+    Record Hour Adherence (%) = Total Recorded Duration / Shift Duration * 100 <br>
 
+    Note: We aim for atleast 85% record hour adherence for each SE.</p>
+    
+
+    <strong>Actionable Insights</strong>
+
+    <p>PFB the contribution of different reason for loss of sale for the month</p>
+
+    {{html_table2}}
+
+    <p>PFB the contribution of different objections for the month</p>
+
+    {{html_table3}}
+
+    
+    <p>
+        <p><b>Definition of Reason for loss of sale Categories</b><br></p>
+        <strong>Customer:</strong> The sale did not take place due to cusotmer centric reason for loss of sale.<br>
+        <strong>Process:</strong> The sale did not take place due to organizational processes.<br>
+        <strong>People:</strong> The sale did not take place due to staff in the store.<br>
+        <strong>Price:</strong> The sale did not take place due to price of the product.<br>
+        <strong>Product:</strong> The sale did not take place due to product limitation.<br>
+    </p>
+    
+    <p>
+        <p><b>Definition of Objection Categories</b><br></p>
+        <strong>Merchandise Issue:</strong> The customer raised objection regarding products displayed.<br>
+        <strong>Price Issue:</strong> Customer objected to high price of the products.<br>
+        <strong>Offers and Discount Issue:</strong> The customer objected to missing offers/discounts/payment plans.<br>
+        <strong>After Sales Issue:</strong> Dissatisfaction with support after purchase, such as repair, exchange, or warranty handling.<br>
+        <strong>Delivery Timeline Issue:</strong> The customer raised objection regarding delivery timeline.<br>
+        <strong>Customization Issue:</strong>  Customer raised objection regarding available customization options.<br>
+        <strong>Negative Past Experience:</strong> Customer was dissatisfied with past negative experience and was concerned it would happen again.<br>
+        <strong>Others:</strong> Anything which does not fall in the above categories.</br>
+    </p>
+
+    <p>
+        <p><b>Definition of Objection Handling</b><br></p>
+        <strong>Explanation:</strong> The response primarily explains or clarifies something.<br>
+        <strong>Solution:</strong> The response offers a concrete solution or action to address the objection.<br>
+        <strong>Generic:</strong> The response is neither a clear explanation nor a solution.<br>
+    </p>
     <p>Team<br>YOYO AI</p>
 </body>
 </html>
@@ -208,6 +251,44 @@ template2 = """
     <p>The same day data upload adherence for {{date}} is <b>0</b></p>
 
     <p> Note: We aim for atleast 85% record hour adherence for each SE.</p>
+
+    <p><strong>Actionable Insights</strong></p>
+
+    <p>PFB the contribution of different reason for loss of sale for the month</p>
+
+    {{html_table2}}
+
+    <p>PFB the contribution of different objections for the month</p>
+
+    {{html_table3}}
+
+    <p>
+        <p><b>Definition of Reason for loss of sale Categories</b><br></p>
+        <strong>Customer:</strong> The sale did not take place due to cusotmer centric reason for loss of sale.<br>
+        <strong>Process:</strong> The sale did not take place due to organizational processes.<br>
+        <strong>People:</strong> The sale did not take place due to staff in the store.<br>
+        <strong>Price:</strong> The sale did not take place due to price of the product.<br>
+        <strong>Product:</strong> The sale did not take place due to product limitation.<br>
+    </p>
+    
+    <p>
+        <p><b>Definition of Objection Categories</b><br></p>
+        <strong>Merchandise Issue:</strong> The customer raised objection regarding products displayed.<br>
+        <strong>Price Issue:</strong> Customer objected to high price of the products.<br>
+        <strong>Offers and Discount Issue:</strong> The customer objected to missing offers/discounts/payment plans.<br>
+        <strong>After Sales Issue:</strong> Dissatisfaction with support after purchase, such as repair, exchange, or warranty handling.<br>
+        <strong>Delivery Timeline Issue:</strong> The customer raised objection regarding delivery timeline.<br>
+        <strong>Customization Issue:</strong>  Customer raised objection regarding available customization options.<br>
+        <strong>Negative Past Experience:</strong> Customer was dissatisfied with past negative experience and was concerned it would happen again.<br>
+        <strong>Others:</strong> Anything which does not fall in the above categories.</br>
+    </p>
+
+    <p>
+        <p><b>Definition of Objection Handling</b><br></p>
+        <strong>Explanation:</strong> The response primarily explains or clarifies something.<br>
+        <strong>Solution:</strong> The response offers a concrete solution or action to address the objection.<br>
+        <strong>Generic:</strong> The response is neither a clear explanation nor a solution.<br>
+    </p>
 
     <p>Team<br>YOYO AI</p>
 </body>
@@ -260,6 +341,8 @@ brand_details = {
 }
 
 date_query = (datetime.now() - pd.Timedelta(days=1)).strftime('%Y-%m-%d')
+date_query_dt = pd.to_datetime(date_query)
+total_days = (date_query_dt - date_query_dt.replace(day=1)).days
 date_query_dt = datetime.strptime(date_query, "%Y-%m-%d")
 weekday = date_query_dt.weekday()
 start_of_week = date_query_dt - pd.Timedelta(days=(weekday + 1) % 7)
@@ -275,7 +358,8 @@ for brand, details in brand_details.items():
     shift_duration = details['shift_duration']
     to_name = details['main_person']
     brand_lower = "_".join(brand.lower().split())
-    
+    SHIFT_DURATION_SECONDS = pd.to_timedelta(shift_duration).total_seconds()
+
     connection = create_connection()
     # Check if the connection is still open
     if connection.closed == 0:
@@ -294,56 +378,28 @@ for brand, details in brand_details.items():
 
 
     select 
-        se_name as "Staff Name",
-        store_name as "Store Name",
-        total_files as "Total Files",
-        valid_files as "Total Valid Files",
-        recorded_duration_hms as "Total Recorded Duration"
-    from (select 
-    sp_id,
-    store_id,
-    se_name,
-    store_name
-    from (	
-        select 
-            a.sp_id,
-            a.store_id,
-            b.name as se_name,
-            c.name as store_name,
-            ROW_NUMBER() OVER (
-            PARTITION BY a.sp_id 
-            ORDER BY (COALESCE(a.end_date, DATE '2099-12-31') = DATE '{date_query}') DESC, 
-            a.start_date DESC     
-            ) AS rn
-        from salesperson_stores as a
-        left join sales_person as b on a.sp_id = b.id
-        left join store as c on a.store_id = c.id
-        left join brand as d on c.brand_id = d.id
-        where start_date <= '{date_query}' and COALESCE(a.end_date, '2099-12-31') >= '{date_query}' and d.name = '{brand_name}') as A
-    where rn = 1) as A
-    left join (
-    select 
-        sales_person_id,
-        count(id) as total_files,
-        TO_CHAR(make_interval(secs => SUM(recorded_duration_seconds)), 'HH24:MI:SS') AS recorded_duration_hms,
-        sum(valid_file) as valid_files
-    from (
-        SELECT 
-            sales_person_id,
-            id,
-            EXTRACT(EPOCH FROM a.duration::interval) AS recorded_duration_seconds,
-                cast(a.speech_duration as integer) as speech_duration_seconds,
-                CASE 
-                WHEN a.duration IS NOT NULL  
-                    AND EXTRACT(EPOCH FROM a.duration::interval) > 0
-                    AND cast(a.speech_duration as integer) / EXTRACT(EPOCH FROM a.duration::interval) BETWEEN 0.1 AND 1
-                THEN 1 
-                ELSE 0 
-                END AS valid_file
-        FROM audio_file as a
-        WHERE path LIKE '%{brand_lower}%' and date = '{date_query}' and date = createddate) as a 
-        group by 1) as b 
-        on a.sp_id = b. sales_person_id
+    e.name as "Name", 
+    d.name as "Store",
+    b.name as "Device",
+    date,
+    EXTRACT(EPOCH FROM a.duration::interval) AS recorded_duration_seconds,
+    CASE 
+       	WHEN a.duration IS NOT NULL  
+        AND EXTRACT(EPOCH FROM a.duration::interval) > 0
+        AND (cast(a.speech_duration as integer) / EXTRACT(EPOCH FROM a.duration::interval) < 0.1 or
+			 cast(a.speech_duration as integer) / EXTRACT(EPOCH FROM a.duration::interval) > 1)
+        THEN 1 
+        ELSE 0 
+        END AS "Blank File"
+    from audio_file as a
+    left join device as b on a.sales_person_id = b.sales_person_id and a.date >= b.assigned_on and a.date <= coalesce(b.unassigned_on, DATE '2099-12-31')
+    left join salesperson_stores as c on a.sales_person_id = c.sp_id and a.date >= c.start_date and a.date <= coalesce(c.end_date, DATE '2099-12-31')
+    left join store as d on c.store_id = d.id
+    left join sales_person as e on a.sales_person_id = e.id
+    where path like '%{brand_lower}%' 
+    and date between date_trunc('month', DATE '{date_query}') and '{date_query}'
+    and date = createddate
+    and SUBSTRING(filename FROM 10 FOR 6) BETWEEN '093000' AND '223000'
         
     """
     #print(f"Executing SQL Query:\n{query1}")
@@ -361,28 +417,75 @@ for brand, details in brand_details.items():
         # Create the DataFrame using data and column names
         df1 = pd.DataFrame(rows, columns=column_names)
         df1["Shift Duration"] = shift_duration
-        df1["Recoded Hour Adherence (%)"] = (pd.to_timedelta(df1["Total Recorded Duration"]) / pd.to_timedelta(df1["Shift Duration"])*100).round(0)
-        df1["Device Active"] = np.where(df1["Total Files"].notna() & (df1["Total Files"] != ""), "Yes", "No")
-        df1["Total Blank Files"] = np.where(
-            df1["Total Files"].notna() & (df1["Total Files"] != "") &
-            df1["Total Valid Files"].notna() & (df1["Total Valid Files"] != ""),
-            df1["Total Files"].astype(float) - df1["Total Valid Files"].astype(float),
-            np.nan   # or 0 if you prefer
-            )
-        df1["Total Blank files (%)"] = np.where(
-            df1["Total Files"].notna() & (df1["Total Files"] != "") &
-            df1["Total Blank Files"].notna() & (df1["Total Blank Files"] != ""),
-            ((df1["Total Blank Files"].astype(float) / df1["Total Files"].astype(float))*100).round(0),
-            np.nan   # or 0 if you prefer
-            )
-        df1 = df1.applymap(lambda x: '' if pd.isna(x) else (int(x) if isinstance(x, (int, float)) and float(x).is_integer() else x))
-        order = ["Store Name", "Staff Name", "Device Active", "Total Recorded Duration", "Recoded Hour Adherence (%)", "Total Files", "Total Valid Files", "Total Blank Files", "Total Blank files (%)", "Shift Duration"]
-        df1 = df1[order]
-        df1 = df1.sort_values(by=["Store Name"], ascending=True).reset_index(drop=True)
         
-        avg_adherence = pd.to_numeric(df1["Recoded Hour Adherence (%)"].replace('', np.nan), errors="coerce").mean().round(0)
-        active_Se = df1[df1["Device Active"] == "Yes"].shape[0]
-        total_se = df1.shape[0]
+        
+    except Exception as e:
+        print(f"Error encountered: {e}")
+        connection.rollback()  # Rollback the transaction if an error occurs
+
+
+    query2 = f"""
+
+    SELECT
+    (elem1 ->> 'category') AS "Reason for Loss of Sale",
+    date
+    FROM interaction_processed
+    LEFT JOIN LATERAL jsonb_array_elements(reason_loss_of_sale) AS elem1 ON TRUE
+    WHERE date >= DATE_TRUNC('month', DATE '{date_query}')
+    AND date <= '{date_query}'
+    AND path LIKE '%{brand_lower}%'
+	AND sales_outcome = 'unsuccessful'
+    
+    """
+    #print(f"Executing SQL Query:\n{query1}")
+    # Print the query to see the actual SQL string
+    #print(f"Executing SQL Query:\n{query1}")
+
+    try:
+        cursor.execute(query2)
+        
+        # Fetch the data
+        rows = cursor.fetchall()
+        
+        # Extract column names
+        column_names = [desc[0] for desc in cursor.description]
+        # Create the DataFrame using data and column names
+        df2 = pd.DataFrame(rows, columns=column_names)
+        
+        
+        
+    except Exception as e:
+        print(f"Error encountered: {e}")
+        connection.rollback()  # Rollback the transaction if an error occurs
+
+    query3 = f"""
+
+    SELECT
+    (elem1 ->> 'category') AS "Objection Category",
+    date
+    FROM interaction_processed
+    LEFT JOIN LATERAL jsonb_array_elements(customer_objection_handling) AS elem1 ON TRUE
+    WHERE date >= DATE_TRUNC('month', DATE '{date_query}')
+    AND date <= '{date_query}'
+    AND path LIKE '%{brand_lower}%'
+    
+    """
+    #print(f"Executing SQL Query:\n{query1}")
+    # Print the query to see the actual SQL string
+    #print(f"Executing SQL Query:\n{query1}")
+
+    try:
+        cursor.execute(query3)
+        
+        # Fetch the data
+        rows = cursor.fetchall()
+        
+        # Extract column names
+        column_names = [desc[0] for desc in cursor.description]
+        # Create the DataFrame using data and column names
+        df3 = pd.DataFrame(rows, columns=column_names)
+        
+        
         
     except Exception as e:
         print(f"Error encountered: {e}")
@@ -393,34 +496,222 @@ for brand, details in brand_details.items():
     finally:
         cursor.close()
 
-    cols = df1.columns
+    get_week = lambda d: f"Week {((pd.Timestamp(d) - (pd.Timestamp(d).replace(day=1) - pd.Timedelta(days=((pd.Timestamp(d).replace(day=1).weekday() + 1) % 7 + 1))).normalize()).days // 7) + 1}"
+    get_day_label = lambda d, today=pd.Timestamp.today().normalize(): f"D-{(today - pd.Timestamp(d).normalize()).days}" if 1 <= (today - pd.Timestamp(d).normalize()).days <= 4 else "D-X"
+    df1['recorded_duration_seconds'] = df1['recorded_duration_seconds'].astype(float)
+    df1['week'] = df1['date'].apply(get_week)
+    df1['day_label'] = df1['date'].apply(get_day_label)
+    df2['week'] = df2['date'].apply(get_week)
+    df2['day_label'] = df2['date'].apply(get_day_label)
+    df2['Contribution (%)'] = (df2['Reason for Loss of Sale'].map(df2['Reason for Loss of Sale'].value_counts(normalize=True).mul(100).round(1)))
+    df3['week'] = df3['date'].apply(get_week)
+    df3['day_label'] = df3['date'].apply(get_day_label)
+    df3['Contribution (%)'] = (df3['Objection Category'].map(df3['Objection Category'].value_counts(normalize=True).mul(100).round(1)))
+    
+
+    if df1.empty:
+        blank_perc = pd.DataFrame(columns=['Name', 'Device', 'Blank_Files', 'Total_Files', 'Blank_Percentage'])
+    else:
+        blank = (
+            df1.groupby(['Name', 'Device'])
+            .agg(Blank_Files=('Blank File', 'sum'))
+            .reset_index()
+        )
+
+        total = (
+            df1.groupby(['Name', 'Device'])
+            .agg(Total_Files=('Blank File', 'count'))
+            .reset_index()
+        )
+
+        blank_perc = blank.merge(total, on=['Name', 'Device'], how='outer')
+
+        blank_perc['Blank_Percentage'] = (
+            (blank_perc['Blank_Files'] / blank_perc['Total_Files'])
+            .replace([np.inf, -np.inf], np.nan)
+            .fillna(0)
+            * 100
+        )
+
+        blank_perc['Blank_Percentage'] = (
+            pd.to_numeric(blank_perc['Blank_Percentage'], errors='coerce')
+            .round(1)
+            .fillna(0)
+            .astype(str) + '%'
+        )
+
+
+    mtd = (
+    df1.groupby(['Name', 'Device'])
+      .agg(MTD_seconds=('recorded_duration_seconds', 'sum'))
+      .reset_index()
+)
+
+    mtd['active_days'] = total_days
+
+
+    mtd['MTD (hrs)'] = (
+        (mtd['MTD_seconds'] // 3600).astype(int).astype(str) + ':' +
+        ((mtd['MTD_seconds'] % 3600) // 60).astype(int).astype(str).str.zfill(2) + ':' +
+        (mtd['MTD_seconds'] % 60).round().astype(int).astype(str).str.zfill(2)
+    )
+
+    mtd['MTD Adherence %'] = (
+        (mtd['MTD_seconds'] / (mtd['active_days'] * SHIFT_DURATION_SECONDS) * 100)
+        .round(1).astype(str) + '%'
+    )
+
+    mtd_rlos = (
+    df2.groupby('Reason for Loss of Sale')
+      .size()
+      .reset_index(name='MTD')
+    )
+
+    mtd_obj = (
+    df3.groupby('Objection Category')
+      .size()
+      .reset_index(name='MTD')
+    )
+
+    week_pivot = (
+        df1.groupby(['Name', 'Device', 'week'])['recorded_duration_seconds']
+        .sum()
+        .reset_index()
+        .pivot(index=['Name', 'Device'], columns='week', values='recorded_duration_seconds')
+        .fillna(0)
+        .reset_index()
+    )
+
+
+    for c in week_pivot.columns[2:]:
+        week_pivot[c] = (week_pivot[c] / (7 * SHIFT_DURATION_SECONDS) * 100).round(1).astype(str) + '%'
+
+    week_counts_rlos = (
+    df2.groupby(['Reason for Loss of Sale', 'week'])
+      .size()
+      .unstack(fill_value=0)
+      .reset_index()
+    )
+
+    week_counts_obj = (
+    df3.groupby(['Objection Category', 'week'])
+      .size()
+      .unstack(fill_value=0)
+      .reset_index()
+    )
+
+    day_pivot = (
+        df1.groupby(['Name', 'Device', 'day_label'])['recorded_duration_seconds']
+        .sum()
+        .reset_index()
+        .pivot(index=['Name', 'Device'], columns='day_label', values='recorded_duration_seconds')
+        .fillna(0)
+        .reset_index()
+    )
+
+
+    for c in [col for col in day_pivot.columns if col.startswith('D-')]:
+        day_pivot[c] = (day_pivot[c] / SHIFT_DURATION_SECONDS * 100).round(1).astype(str) + '%'
+
+    day_counts_rlos = (
+    df2.groupby(['Reason for Loss of Sale', 'day_label'])
+      .size()
+      .unstack(fill_value=0)
+      .reset_index()
+    )
+
+    day_counts_obj = (
+    df3.groupby(['Objection Category', 'day_label'])
+      .size()
+      .unstack(fill_value=0)
+      .reset_index()
+    )
+
+    contribution_rlos = (
+        df2.groupby('Reason for Loss of Sale')['Contribution (%)'].max().reset_index()
+        )
+    
+    contribution_rlos['Contribution (%)'] = (
+    contribution_rlos['Contribution (%)'].round(1).astype(float).astype(str) + '%'
+    )
+
+    contribution_obj = (
+        df3.groupby('Objection Category')['Contribution (%)'].max().reset_index()
+        )
+    
+    contribution_obj['Contribution (%)'] = (
+    contribution_obj['Contribution (%)'].round(1).astype(float).astype(str) + '%'
+    )
+
+    final = (
+        mtd.merge(blank_perc, on=['Name', 'Device'], how='left')
+        .merge(week_pivot, on=['Name', 'Device'], how='left')
+        .merge(day_pivot, on=['Name', 'Device'], how='left')
+        .fillna(0)
+    )
+
+    week_cols = sorted([c for c in final.columns if str(c).startswith('Week')])
+
+    day_cols = [f'D-{i}' for i in range(1, 5)]
+    for c in day_cols:
+        if c not in final.columns:
+            final[c] = "-"
+
+    final = final[['Name', 'Device', 'MTD (hrs)', 'MTD Adherence %', 'Blank_Percentage'] + week_cols + day_cols]
+    final.rename(columns={'Blank_Percentage': 'Blank Files (%)'}, inplace=True)
+    df_adherence = final.copy()
+
+
+    final = (
+    mtd_rlos.merge(contribution_rlos, on='Reason for Loss of Sale', how='left')
+       .merge(week_counts_rlos, on='Reason for Loss of Sale', how='left')
+       .merge(day_counts_rlos, on='Reason for Loss of Sale', how='left')
+       .fillna(0)
+    )
+
+    week_cols = [c for c in final.columns if c.startswith('Week')]
+    day_cols = [f'D-{i}' for i in range(1, 5)]
+    for c in day_cols:
+        if c not in final.columns:
+            final[c] = "-"
+    final = final[['Reason for Loss of Sale', 'MTD', 'Contribution (%)'] + week_cols + day_cols]
+    df_rlos = final.copy()
+
+    final = (
+    mtd_obj.merge(contribution_obj, on='Objection Category', how='left')
+       .merge(week_counts_obj, on='Objection Category', how='left')
+       .merge(day_counts_obj, on='Objection Category', how='left')
+       .fillna(0)
+    )
+
+    week_cols = [c for c in final.columns if c.startswith('Week')]
+    day_cols = [f'D-{i}' for i in range(1, 5)]
+    for c in day_cols:
+        if c not in final.columns:
+            final[c] = "-"
+    final = final[['Objection Category', 'MTD', 'Contribution (%)'] + week_cols + day_cols]
+    df_obj = final.copy()
+
+    df_obj['Objection Category'] = (df_obj['Objection Category'].str.replace('_', ' ', regex=False).str.title())
+    
+    d1_numeric = pd.to_numeric(df_adherence["D-1"].astype(str).str.replace('%', ''), errors="coerce")
+    avg_adherence = round(d1_numeric.mean(), 0) if not d1_numeric.empty else 0
+    active_Se = int((d1_numeric > 0).sum()) if not d1_numeric.empty else 0
+    total_se = int(df_adherence.shape[0]) if not df_adherence.empty else 0
+
+    cols = df_adherence.columns
     rows_html = []
 
-    for _, row in df1.iterrows():
+    for _, row in df_adherence.iterrows():
         cells = []
         for col in cols:
             cell_value = row[col]
             style = "text-align:center;border:1px solid #000;"
-            if col == "Shift Duration":
-                style += "background-color:#E57373;color:#000;"       # pastel blue
-                cells.append(f"<td style='{style}'>{cell_value}</td>")
-            elif col == "Total Recorded Duration":
-                style += "background-color:#F8C9D4;color:#000;"       # pastel green
-                cells.append(f"<td style='{style}'>{cell_value}</td>")
-            elif col == "Recoded Hour Adherence (%)":
-                style += "background-color:#D8BFD8;color:#000;"       # pastel green
-                try:
-                    val = float(cell_value)
-                    cell_value = f"{val:.0f}%"
-                except (ValueError, TypeError):
-                    # leave it as-is if it's empty, "-" or non-numeric
-                    pass
-                cells.append(f"<td style='{style}'>{cell_value}</td>")
-            else:
-                cells.append(f"<td style='{style}'>{cell_value}</td>")
+            cells.append(f"<td style='{style}'>{cell_value}</td>")
+            
         rows_html.append("<tr>" + "".join(cells) + "</tr>")
 
-    html_table1 = ( 
+    html_table_adherence = ( 
         "<table border='1' cellpadding='6' cellspacing='0' " 
         "style='border-collapse:collapse;font-family:Arial,sans-serif;font-size:13px;width:100%;'>" 
         "<thead><tr>" 
@@ -428,6 +719,49 @@ for brand, details in brand_details.items():
         + "</tr></thead><tbody>" 
         + "".join(rows_html) + "</tbody></table>" 
         )
+    
+    cols = df_rlos.columns
+    rows_html = []
+
+    for _, row in df_rlos.iterrows():
+        cells = []
+        for col in cols:
+            cell_value = row[col]
+            style = "text-align:center;border:1px solid #000;"
+            cells.append(f"<td style='{style}'>{cell_value}</td>")
+            
+        rows_html.append("<tr>" + "".join(cells) + "</tr>")
+
+    html_table_rlos = ( 
+        "<table border='1' cellpadding='6' cellspacing='0' " 
+        "style='border-collapse:collapse;font-family:Arial,sans-serif;font-size:13px;width:100%;'>" 
+        "<thead><tr>" 
+        + "".join([f"<th>{c}</th>" for c in cols]) 
+        + "</tr></thead><tbody>" 
+        + "".join(rows_html) + "</tbody></table>" 
+        )
+    
+    cols = df_obj.columns
+    rows_html = []
+
+    for _, row in df_obj.iterrows():
+        cells = []
+        for col in cols:
+            cell_value = row[col]
+            style = "text-align:center;border:1px solid #000;"
+            cells.append(f"<td style='{style}'>{cell_value}</td>")
+            
+        rows_html.append("<tr>" + "".join(cells) + "</tr>")
+
+    html_table_obj = ( 
+        "<table border='1' cellpadding='6' cellspacing='0' " 
+        "style='border-collapse:collapse;font-family:Arial,sans-serif;font-size:13px;width:100%;'>" 
+        "<thead><tr>" 
+        + "".join([f"<th>{c}</th>" for c in cols]) 
+        + "</tr></thead><tbody>" 
+        + "".join(rows_html) + "</tbody></table>" 
+        )
+    
     
     dt = datetime.strptime(date_query, "%Y-%m-%d")
     ds = datetime.strptime(start_date_week, "%Y-%m-%d")
@@ -438,14 +772,15 @@ for brand, details in brand_details.items():
     de_f = f"{ordinal(de.day)} {de.strftime('%b')}'{de.strftime('%y')}"
 
 
-    if (pd.to_numeric(df1["Total Files"], errors='coerce').sum() == 0):
+    if active_Se == 0:
         template = template2
         email_template = Template(template)
         email_content = email_template.render(
             date = dt_f,
-            to_name = to_name
+            to_name = to_name,
+            html_table2 =  html_table_rlos, 
+            html_table3 = html_table_obj 
         )
-
     else:
         template = template1
         email_template = Template(template)
@@ -455,7 +790,9 @@ for brand, details in brand_details.items():
             avg_adherence = int(avg_adherence) if not pd.isna(avg_adherence) else 0,
             active_Se = active_Se,
             total_se = total_se,
-            html_table = html_table1
+            html_table1 = html_table_adherence,
+            html_table2 =  html_table_rlos, 
+            html_table3 = html_table_obj
         )
 
     subject_template = '{{ brand_name }} Adherence Report: {{ start_date_week }} to {{ end_date_week }}'
@@ -468,4 +805,5 @@ for brand, details in brand_details.items():
         end_date_week = de_f
     )
     send_html_email_gmail_api(service, 'reports@goyoyo.ai', to_emails, cc_emails, subject, email_content)
+        
 

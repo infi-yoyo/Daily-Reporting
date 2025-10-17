@@ -513,21 +513,21 @@ for brand, details in brand_details.items():
     
 
     if df1.empty:
-        blank_perc = pd.DataFrame(columns=['Name', 'Device', 'Blank_Files', 'Total_Files', 'Blank_Percentage'])
+        blank_perc = pd.DataFrame(columns=['Store', 'Name', 'Device', 'Blank_Files', 'Total_Files', 'Blank_Percentage'])
     else:
         blank = (
-            df1.groupby(['Name', 'Device'])
+            df1.groupby(['Store', 'Name', 'Device'])
             .agg(Blank_Files=('Blank File', 'sum'))
             .reset_index()
         )
 
         total = (
-            df1.groupby(['Name', 'Device'])
+            df1.groupby(['Store','Name', 'Device'])
             .agg(Total_Files=('Blank File', 'count'))
             .reset_index()
         )
 
-        blank_perc = blank.merge(total, on=['Name', 'Device'], how='outer')
+        blank_perc = blank.merge(total, on=['Store', 'Name', 'Device'], how='outer')
 
         blank_perc['Blank_Percentage'] = (
             (blank_perc['Blank_Files'] / blank_perc['Total_Files'])
@@ -545,7 +545,7 @@ for brand, details in brand_details.items():
 
 
     mtd = (
-    df1.groupby(['Name', 'Device'])
+    df1.groupby(['Store', 'Name', 'Device'])
       .agg(MTD_seconds=('recorded_duration_seconds', 'sum'))
       .reset_index()
 )
@@ -577,16 +577,16 @@ for brand, details in brand_details.items():
     )
 
     week_pivot = (
-        df1.groupby(['Name', 'Device', 'week'])['recorded_duration_seconds']
+        df1.groupby(['Store','Name', 'Device', 'week'])['recorded_duration_seconds']
         .sum()
         .reset_index()
-        .pivot(index=['Name', 'Device'], columns='week', values='recorded_duration_seconds')
+        .pivot(index=['Store','Name', 'Device'], columns='week', values='recorded_duration_seconds')
         .fillna(0)
         .reset_index()
     )
 
 
-    for c in week_pivot.columns[2:]:
+    for c in week_pivot.columns[3:]:
         week_pivot[c] = (week_pivot[c] / (7 * SHIFT_DURATION_SECONDS) * 100).round(1).astype(str) + '%'
 
     week_counts_rlos = (
@@ -604,10 +604,10 @@ for brand, details in brand_details.items():
     )
 
     day_pivot = (
-        df1.groupby(['Name', 'Device', 'day_label'])['recorded_duration_seconds']
+        df1.groupby(['Store','Name', 'Device', 'day_label'])['recorded_duration_seconds']
         .sum()
         .reset_index()
-        .pivot(index=['Name', 'Device'], columns='day_label', values='recorded_duration_seconds')
+        .pivot(index=['Store',	'Name', 'Device'], columns='day_label', values='recorded_duration_seconds')
         .fillna(0)
         .reset_index()
     )
@@ -647,9 +647,9 @@ for brand, details in brand_details.items():
     )
 
     final = (
-        mtd.merge(blank_perc, on=['Name', 'Device'], how='left')
-        .merge(week_pivot, on=['Name', 'Device'], how='left')
-        .merge(day_pivot, on=['Name', 'Device'], how='left')
+        mtd.merge(blank_perc, on=['Store','Name', 'Device'], how='left')
+        .merge(week_pivot, on=['Store','Name', 'Device'], how='left')
+        .merge(day_pivot, on=['Store','Name', 'Device'], how='left')
         .fillna(0)
     )
 
@@ -660,7 +660,7 @@ for brand, details in brand_details.items():
         if c not in final.columns:
             final[c] = "-"
 
-    final = final[['Name', 'Device', 'MTD (hrs)', 'MTD Adherence %', 'Blank_Percentage'] + week_cols + day_cols]
+    final = final[['Store','Name', 'Device', 'MTD (hrs)', 'MTD Adherence %', 'Blank_Percentage'] + week_cols + day_cols]
     final.rename(columns={'Blank_Percentage': 'Blank Files (%)'}, inplace=True)
     df_adherence = final.copy()
 

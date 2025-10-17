@@ -400,6 +400,7 @@ for brand, details in brand_details.items():
     and date between date_trunc('month', DATE '{date_query}') and '{date_query}'
     and date = createddate
     and SUBSTRING(filename FROM 10 FOR 6) BETWEEN '093000' AND '223000'
+	
         
     """
     #print(f"Executing SQL Query:\n{query1}")
@@ -435,6 +436,7 @@ for brand, details in brand_details.items():
     AND date <= '{date_query}'
     AND path LIKE '%{brand_lower}%'
 	AND sales_outcome = 'unsuccessful'
+	AND cast(duration as integer) > 180000
     
     """
     #print(f"Executing SQL Query:\n{query1}")
@@ -468,6 +470,7 @@ for brand, details in brand_details.items():
     WHERE date >= DATE_TRUNC('month', DATE '{date_query}')
     AND date <= '{date_query}'
     AND path LIKE '%{brand_lower}%'
+	AND cast(duration as integer) > 180000
     
     """
     #print(f"Executing SQL Query:\n{query1}")

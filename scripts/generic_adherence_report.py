@@ -337,6 +337,14 @@ brand_details = {
         "main_person": "Avanish",
         "cc": ["harshal@goyoyo.ai", "rohan@goyoyo.ai", "nikhil@goyoyo.ai", "pranet@goyoyo.ai", "adarsh@goyoyo.ai"],
         "shift_duration": "7:00:00"
+    },
+    "CKC Group of Jewellers ": {
+        "to": [
+            "souravnandy@ckcsons.com"
+        ],
+        "main_person": "Sourav",
+        "cc": ["harshal@goyoyo.ai", "rohan@goyoyo.ai", "nikhil@goyoyo.ai", "pranet@goyoyo.ai", "adarsh@goyoyo.ai"],
+        "shift_duration": "8:30:00"
     }
 }
 
@@ -349,6 +357,60 @@ start_of_week = date_query_dt - pd.Timedelta(days=(weekday + 1) % 7)
 end_of_week = start_of_week + pd.Timedelta(days=6)
 start_date_week = start_of_week.strftime('%Y-%m-%d')
 end_date_week = end_of_week.strftime('%Y-%m-%d')
+
+
+date_query = (datetime.now() - pd.Timedelta(days=1)).strftime('%Y-%m-%d')
+date_query_dt = pd.to_datetime(date_query)
+total_days = (date_query_dt - date_query_dt.replace(day=1)).days + 1
+first_of_month = date_query_dt.replace(day=1)
+month_end = (first_of_month + pd.offsets.MonthEnd(0)).normalize()
+date_query_dt_2 = datetime.strptime(date_query, "%Y-%m-%d")
+weekday = date_query_dt_2.weekday()
+start_of_week = date_query_dt_2 - pd.Timedelta(days=(weekday + 1) % 7)
+end_of_week = start_of_week + pd.Timedelta(days=6)
+start_date_week = start_of_week.strftime('%Y-%m-%d')
+end_date_week = end_of_week.strftime('%Y-%m-%d')
+
+first_sat = first_of_month + timedelta(days=(5 - first_of_month.weekday()) % 7)
+w1_end = min(first_sat, month_end)
+
+w1_end     = min(first_sat.normalize(), month_end)
+w2_start   = (w1_end + pd.Timedelta(days=1)).normalize()  # first Sunday
+
+get_week = lambda d: (
+    "Week 1"
+    if pd.Timestamp(d).normalize() <= w1_end
+    else f"Week {2 + ((pd.Timestamp(d).normalize() - w2_start).days // 7)}"
+)
+
+get_day_label = lambda d, today=pd.Timestamp.today().normalize(): f"D-{(today - pd.Timestamp(d).normalize()).days}" if 1 <= (today - pd.Timestamp(d).normalize()).days <= 4 else "D-X"
+
+# Build week ranges (Week 1, then Sunday→Saturday)
+weeks = []
+weeks.append((first_of_month, w1_end))
+start = (w1_end + timedelta(days=1)).normalize()
+while start <= month_end:
+    end = min(start + timedelta(days=6), month_end)
+    weeks.append((start, end))
+    start = end + timedelta(days=1)
+
+# Create DataFrame
+df_week_ranges = pd.DataFrame([
+    {
+        "Week": f"Week {i+1}",
+        "Start Date": s,
+        "End Date": e,
+        "End Date (till yesterday)": min(e, date_query_dt),
+        "Working Days (till yesterday)": (min(e, date_query_dt) - s).days + 1
+                        if date_query_dt >= s else 0   # 0 if week hasn’t started yet
+    }
+    for i, (s, e) in enumerate(weeks)
+])
+
+for col in ["Start Date", "End Date", "End Date (till yesterday)"]:
+    df_week_ranges[col] = df_week_ranges[col].apply(lambda x: x.strftime("%d-%m-%Y") if pd.notnull(x) else None)
+
+
 
 
 for brand, details in brand_details.items():
@@ -377,30 +439,66 @@ for brand, details in brand_details.items():
     query1 = f"""
 
 
-    select 
-    e.name as "Name", 
-    d.name as "Store",
-    b.name as "Device",
-    date,
-    EXTRACT(EPOCH FROM a.duration::interval) AS recorded_duration_seconds,
-    CASE 
-       	WHEN a.duration IS NOT NULL  
-        AND EXTRACT(EPOCH FROM a.duration::interval) > 0
-        AND (cast(a.speech_duration as integer) / EXTRACT(EPOCH FROM a.duration::interval) < 0.1 or
-			 cast(a.speech_duration as integer) / EXTRACT(EPOCH FROM a.duration::interval) > 1)
-        THEN 1 
-        ELSE 0 
-        END AS "Blank File"
-    from audio_file as a
-    left join device as b on a.sales_person_id = b.sales_person_id and a.date >= b.assigned_on and a.date <= coalesce(b.unassigned_on, DATE '2099-12-31')
-    left join salesperson_stores as c on a.sales_person_id = c.sp_id and a.date >= c.start_date and a.date <= coalesce(c.end_date, DATE '2099-12-31')
-    left join store as d on c.store_id = d.id
-    left join sales_person as e on a.sales_person_id = e.id
-    where path like '%{brand_lower}%' 
-    and date between date_trunc('month', DATE '{date_query}') and '{date_query}'
-    and date = createddate
-    and SUBSTRING(filename FROM 10 FOR 6) BETWEEN '093000' AND '223000'
-	
+
+    WITH params AS (
+  SELECT
+    LEAST(
+      date_trunc('month', DATE '{date_query}')::date,
+      (DATE '{date_query}'::date - 4)
+    ) AS start_dt,
+    DATE '{date_query}'::date AS end_dt
+)
+,
+base_sp AS (
+  
+  SELECT
+    c.sp_id,
+    c.store_id,
+    c.start_date,
+    c.end_date
+  FROM salesperson_stores AS c
+  JOIN store  AS s  ON s.id = c.store_id
+  JOIN brand  AS br ON br.id = s.brand_id
+  CROSS JOIN params p
+  WHERE br.name = '{brand}'
+    AND c.start_date <= p.end_dt
+    AND COALESCE(c.end_date, DATE '2099-12-31') >= p.start_dt
+)
+SELECT
+  sperson.name                             AS "Name",
+  st.name                                  AS "Store",
+  dev.name                                 AS "Device",
+  af.date                                   AS date,
+  EXTRACT(EPOCH FROM af.duration::interval) AS recorded_duration_seconds,
+  CASE
+    WHEN af.duration IS NOT NULL
+     AND EXTRACT(EPOCH FROM af.duration::interval) > 0
+     AND (
+          CAST(af.speech_duration AS integer) / EXTRACT(EPOCH FROM af.duration::interval) < 0.10
+          OR CAST(af.speech_duration AS integer) / EXTRACT(EPOCH FROM af.duration::interval) > 1
+         )
+    THEN 1 ELSE 0
+  END AS "Blank File"
+FROM base_sp bs
+LEFT JOIN sales_person sperson ON sperson.id = bs.sp_id
+LEFT JOIN store       st       ON st.id = bs.store_id
+
+-- Only Clovia audio files, within date/time rules (LEFT JOIN so execs with no audio still show)
+LEFT JOIN audio_file af
+  ON af.sales_person_id = bs.sp_id
+ AND af.path ILIKE '%{brand_lower}%'
+ AND af.date BETWEEN GREATEST(bs.start_date, (SELECT start_dt FROM params))
+                 AND LEAST(COALESCE(bs.end_date, DATE '2099-12-31'), (SELECT end_dt FROM params))
+ AND af.date = af.createddate
+ AND SUBSTRING(af.filename FROM 10 FOR 6) BETWEEN '093000' AND '223000'
+
+-- Devices overlapping the SP assignment window (independent of audio presence)
+LEFT JOIN device dev
+  ON dev.sales_person_id = bs.sp_id
+ AND dev.store_id = bs.store_id
+ AND dev.assigned_on <= (SELECT end_dt  FROM params)
+ AND COALESCE(dev.unassigned_on, DATE '2099-12-31') >= (SELECT end_dt FROM params)
+;
         
     """
     #print(f"Executing SQL Query:\n{query1}")
@@ -436,7 +534,6 @@ for brand, details in brand_details.items():
     AND date <= '{date_query}'
     AND path LIKE '%{brand_lower}%'
 	AND sales_outcome = 'unsuccessful'
-	AND cast(duration as integer) > 180000
     
     """
     #print(f"Executing SQL Query:\n{query1}")
@@ -470,7 +567,6 @@ for brand, details in brand_details.items():
     WHERE date >= DATE_TRUNC('month', DATE '{date_query}')
     AND date <= '{date_query}'
     AND path LIKE '%{brand_lower}%'
-	AND cast(duration as integer) > 180000
     
     """
     #print(f"Executing SQL Query:\n{query1}")
@@ -499,16 +595,16 @@ for brand, details in brand_details.items():
     finally:
         cursor.close()
 
-    get_week = lambda d: f"Week {((pd.Timestamp(d) - (pd.Timestamp(d).replace(day=1) - pd.Timedelta(days=((pd.Timestamp(d).replace(day=1).weekday() + 1) % 7 + 1))).normalize()).days // 7) + 1}"
-    get_day_label = lambda d, today=pd.Timestamp.today().normalize(): f"D-{(today - pd.Timestamp(d).normalize()).days}" if 1 <= (today - pd.Timestamp(d).normalize()).days <= 4 else "D-X"
+        
+    
     df1['recorded_duration_seconds'] = df1['recorded_duration_seconds'].astype(float)
-    df1['week'] = df1['date'].apply(get_week)
-    df1['day_label'] = df1['date'].apply(get_day_label)
-    df2['week'] = df2['date'].apply(get_week)
-    df2['day_label'] = df2['date'].apply(get_day_label)
+    df1['week'] = df1['date'].apply(lambda x: (get_week(x) if pd.notnull(x) and pd.to_datetime(x) >= first_of_month else None))
+    df1['day_label'] = df1['date'].apply(lambda x: get_day_label(x) if pd.notnull(x) else None)
+    df2['week'] = df2['date'].apply(lambda x: (get_week(x) if pd.notnull(x) and pd.to_datetime(x) >= first_of_month else None))
+    df2['day_label'] = df2['date'].apply(lambda x: get_day_label(x) if pd.notnull(x) else None)
     df2['Contribution (%)'] = (df2['Reason for Loss of Sale'].map(df2['Reason for Loss of Sale'].value_counts(normalize=True).mul(100).round(1)))
-    df3['week'] = df3['date'].apply(get_week)
-    df3['day_label'] = df3['date'].apply(get_day_label)
+    df3['week'] = df3['date'].apply(lambda x: (get_week(x) if pd.notnull(x) and pd.to_datetime(x) >= first_of_month else None))
+    df3['day_label'] = df3['date'].apply(lambda x: get_day_label(x) if pd.notnull(x) else None)
     df3['Contribution (%)'] = (df3['Objection Category'].map(df3['Objection Category'].value_counts(normalize=True).mul(100).round(1)))
     
 
@@ -516,18 +612,18 @@ for brand, details in brand_details.items():
         blank_perc = pd.DataFrame(columns=['Store', 'Name', 'Device', 'Blank_Files', 'Total_Files', 'Blank_Percentage'])
     else:
         blank = (
-            df1.groupby(['Store', 'Name', 'Device'])
+            df1.groupby(['Store','Name', 'Device'])
             .agg(Blank_Files=('Blank File', 'sum'))
             .reset_index()
         )
 
         total = (
-            df1.groupby(['Store','Name', 'Device'])
+            df1.groupby(['Store', 'Name', 'Device'])
             .agg(Total_Files=('Blank File', 'count'))
             .reset_index()
         )
 
-        blank_perc = blank.merge(total, on=['Store', 'Name', 'Device'], how='outer')
+        blank_perc = blank.merge(total, on=['Store','Name', 'Device'], how='outer')
 
         blank_perc['Blank_Percentage'] = (
             (blank_perc['Blank_Files'] / blank_perc['Total_Files'])
@@ -577,17 +673,24 @@ for brand, details in brand_details.items():
     )
 
     week_pivot = (
-        df1.groupby(['Store','Name', 'Device', 'week'])['recorded_duration_seconds']
+        df1.groupby(['Store', 'Name', 'Device', 'week'])['recorded_duration_seconds']
         .sum()
         .reset_index()
-        .pivot(index=['Store','Name', 'Device'], columns='week', values='recorded_duration_seconds')
+        .pivot(index=['Store', 'Name', 'Device'], columns='week', values='recorded_duration_seconds')
         .fillna(0)
         .reset_index()
     )
 
 
-    for c in week_pivot.columns[3:]:
-        week_pivot[c] = (week_pivot[c] / (7 * SHIFT_DURATION_SECONDS) * 100).round(1).astype(str) + '%'
+    for _, row in df_week_ranges.iterrows():
+        week = row["Week"]
+        working_days = row["Working Days (till yesterday)"]
+        if week in week_pivot.columns:
+            week_pivot[week] = (
+                (week_pivot[week] / (working_days * SHIFT_DURATION_SECONDS) * 100)
+                .round(1)
+                .astype(str) + '%'
+            )
 
     week_counts_rlos = (
     df2.groupby(['Reason for Loss of Sale', 'week'])
@@ -604,10 +707,10 @@ for brand, details in brand_details.items():
     )
 
     day_pivot = (
-        df1.groupby(['Store','Name', 'Device', 'day_label'])['recorded_duration_seconds']
+        df1.groupby(['Store', 'Name', 'Device', 'day_label'])['recorded_duration_seconds']
         .sum()
         .reset_index()
-        .pivot(index=['Store',	'Name', 'Device'], columns='day_label', values='recorded_duration_seconds')
+        .pivot(index=['Store', 'Name', 'Device'], columns='day_label', values='recorded_duration_seconds')
         .fillna(0)
         .reset_index()
     )
@@ -647,22 +750,29 @@ for brand, details in brand_details.items():
     )
 
     final = (
-        mtd.merge(blank_perc, on=['Store','Name', 'Device'], how='left')
-        .merge(week_pivot, on=['Store','Name', 'Device'], how='left')
-        .merge(day_pivot, on=['Store','Name', 'Device'], how='left')
+        mtd.merge(blank_perc, on=['Store', 'Name', 'Device'], how='left')
+        .merge(week_pivot, on=['Store', 'Name', 'Device'], how='left')
+        .merge(day_pivot, on=['Store', 'Name', 'Device'], how='left')
         .fillna(0)
     )
 
-    week_cols = sorted([c for c in final.columns if str(c).startswith('Week')])
+    #week_cols = sorted([c for c in final.columns if str(c).startswith('Week')])
+
+    week_cols = [f'Week {i}' for i in range(1, 6)]
+    for c in week_cols:
+        if c not in final.columns:
+            final[c] = "0.0%"
 
     day_cols = [f'D-{i}' for i in range(1, 5)]
     for c in day_cols:
         if c not in final.columns:
-            final[c] = "-"
+            final[c] = "0.0%"
 
-    final = final[['Store','Name', 'Device', 'MTD (hrs)', 'MTD Adherence %', 'Blank_Percentage'] + week_cols + day_cols]
+    final = final[['Store', 'Name', 'Device', 'MTD (hrs)', 'MTD Adherence %', 'Blank_Percentage'] + week_cols + day_cols]
     final.rename(columns={'Blank_Percentage': 'Blank Files (%)'}, inplace=True)
     df_adherence = final.copy()
+    df_adherence[['MTD Adherence %','Blank Files (%)','Week 1','Week 2','Week 3','Week 4','Week 5','D-1','D-2','D-3','D-4']] = df_adherence[['MTD Adherence %','Blank Files (%)','Week 1','Week 2','Week 3','Week 4','Week 5','D-1','D-2','D-3','D-4']].apply(lambda s: s.apply(lambda x: f"{x:.1f}%" if pd.api.types.is_number(x) else x))
+
 
 
     final = (
@@ -672,13 +782,23 @@ for brand, details in brand_details.items():
        .fillna(0)
     )
 
-    week_cols = [c for c in final.columns if c.startswith('Week')]
+    week_cols = [f'Week {i}' for i in range(1, 6)]
+    for c in week_cols:
+        if c not in final.columns:
+            final[c] = "0"
+
+
     day_cols = [f'D-{i}' for i in range(1, 5)]
     for c in day_cols:
         if c not in final.columns:
-            final[c] = "-"
+            final[c] = "0"
     final = final[['Reason for Loss of Sale', 'MTD', 'Contribution (%)'] + week_cols + day_cols]
     df_rlos = final.copy()
+    df_rlos = df_rlos.sort_values(
+        by='Contribution (%)',
+        key=lambda s: pd.to_numeric(s.astype(str).str.strip().str.rstrip('%'), errors='coerce'),
+        ascending=False
+        ).reset_index(drop=True)
 
     final = (
     mtd_obj.merge(contribution_obj, on='Objection Category', how='left')
@@ -687,15 +807,25 @@ for brand, details in brand_details.items():
        .fillna(0)
     )
 
-    week_cols = [c for c in final.columns if c.startswith('Week')]
+    week_cols = [f'Week {i}' for i in range(1, 6)]
+    for c in week_cols:
+        if c not in final.columns:
+            final[c] = "0"
+
+            
     day_cols = [f'D-{i}' for i in range(1, 5)]
     for c in day_cols:
         if c not in final.columns:
-            final[c] = "-"
+            final[c] = "0"
     final = final[['Objection Category', 'MTD', 'Contribution (%)'] + week_cols + day_cols]
     df_obj = final.copy()
 
     df_obj['Objection Category'] = (df_obj['Objection Category'].str.replace('_', ' ', regex=False).str.title())
+    df_obj = df_obj.sort_values(
+        by='Contribution (%)',
+        key=lambda s: pd.to_numeric(s.astype(str).str.strip().str.rstrip('%'), errors='coerce'),
+        ascending=False
+        ).reset_index(drop=True)
     
     d1_numeric = pd.to_numeric(df_adherence["D-1"].astype(str).str.replace('%', ''), errors="coerce")
     avg_adherence = round(d1_numeric.mean(), 0) if not d1_numeric.empty else 0
@@ -710,6 +840,35 @@ for brand, details in brand_details.items():
         for col in cols:
             cell_value = row[col]
             style = "text-align:center;border:1px solid #000;"
+            text_color = "#000"
+
+            # Columns to apply conditional formatting
+            if col in [
+                "MTD Adherence %",
+                "Week 1",
+                "Week 2",
+                "Week 3",
+                "Week 4",
+                "Week 5",
+                "D-1",
+                "D-2",
+                "D-3",
+                "D-4",
+            ]:
+                try:
+                    # Remove % sign and convert to float
+                    val = float(str(cell_value).replace("%", "").strip())
+                    if val >= 85:
+                        bg_color = "#d9ead3"  # light green
+                    elif 75 <= val < 85:
+                        bg_color = "#fff2cc"  # light yellow
+                    elif 60 <= val < 75:
+                        bg_color = "#f9cb9c"  # light orange
+                    else:
+                        bg_color = "#f4cccc"  # light red
+                    style += f"background-color:{bg_color};color:{text_color};"
+                except:
+                    pass  # skip if not numeric
             cells.append(f"<td style='{style}'>{cell_value}</td>")
             
         rows_html.append("<tr>" + "".join(cells) + "</tr>")
@@ -747,6 +906,8 @@ for brand, details in brand_details.items():
     cols = df_obj.columns
     rows_html = []
 
+
+    
     for _, row in df_obj.iterrows():
         cells = []
         for col in cols:
@@ -765,6 +926,27 @@ for brand, details in brand_details.items():
         + "".join(rows_html) + "</tbody></table>" 
         )
     
+    cols = df_week_ranges.columns
+    rows_html = []
+
+    for _, row in df_week_ranges.iterrows():
+        cells = []
+        for col in cols:
+            cell_value = row[col]
+            style = "text-align:center;border:1px solid #000;"
+            cells.append(f"<td style='{style}'>{cell_value}</td>")
+            
+        rows_html.append("<tr>" + "".join(cells) + "</tr>")
+
+    html_table_week = ( 
+        "<table border='1' cellpadding='6' cellspacing='0' " 
+        "style='border-collapse:collapse;font-family:Arial,sans-serif;font-size:13px;width:100%;'>" 
+        "<thead><tr>" 
+        + "".join([f"<th>{c}</th>" for c in cols]) 
+        + "</tr></thead><tbody>" 
+        + "".join(rows_html) + "</tbody></table>" 
+        )
+    
     
     dt = datetime.strptime(date_query, "%Y-%m-%d")
     ds = datetime.strptime(start_date_week, "%Y-%m-%d")
@@ -775,38 +957,26 @@ for brand, details in brand_details.items():
     de_f = f"{ordinal(de.day)} {de.strftime('%b')}'{de.strftime('%y')}"
 
 
-    if active_Se == 0:
-        template = template2
-        email_template = Template(template)
-        email_content = email_template.render(
-            date = dt_f,
-            to_name = to_name,
-            html_table2 =  html_table_rlos, 
-            html_table3 = html_table_obj 
-        )
-    else:
-        template = template1
-        email_template = Template(template)
-        email_content = email_template.render(
-            date = dt_f,
-            to_name = to_name,
-            avg_adherence = int(avg_adherence) if not pd.isna(avg_adherence) else 0,
-            active_Se = active_Se,
-            total_se = total_se,
-            html_table1 = html_table_adherence,
-            html_table2 =  html_table_rlos, 
-            html_table3 = html_table_obj
-        )
+    template = template1
+    email_template = Template(template)
+    email_content = email_template.render(
+        date = dt_f,
+        to_name = to_name,
+        avg_adherence = int(avg_adherence) if not pd.isna(avg_adherence) else 0,
+        active_Se = active_Se,
+        total_se = total_se,
+        html_table1 = html_table_adherence,
+        html_table2 =  html_table_rlos, 
+        html_table3 = html_table_obj,
+        html_table4 = html_table_week
+    )
 
-    subject_template = '{{ brand_name }} Adherence Report: {{ start_date_week }} to {{ end_date_week }}'
+    subject_template = '{{ brand_name }} x YOYO AI - Adherence Report & Actionable Insights: {{ date_query }}'
 
         # Render the subject using Jinja2
     subject = Template(subject_template).render(
         date_query=dt_f,
-        brand_name = brand_name.replace("_", " ").title(),
-        start_date_week = ds_f,
-        end_date_week = de_f
+        brand_name = brand_name.replace("_", " ").title()
     )
     send_html_email_gmail_api(service, 'reports@goyoyo.ai', to_emails, cc_emails, subject, email_content)
         
-

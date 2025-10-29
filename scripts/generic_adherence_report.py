@@ -5,7 +5,7 @@ from email.mime.text import MIMEText
 from jinja2 import Template
 import pandas as pd
 import psycopg2  # Assuming you're using PostgreSQL
-from datetime import datetime
+from datetime import datetime, timedelta
 from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
@@ -175,12 +175,39 @@ connection = create_connection()
 template1 = """
 
 <html>
+<head>
+    <style>
+        
+        .definitions {
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            padding: 20px;
+            margin: 25px 0;
+            border-radius: 6px;
+        }
+        
+        .definitions h2 {
+            color: #495057;
+            margin-top: 0;
+            margin-bottom: 15px;
+            font-size: 18px;
+        }
+        
+        .definitions p {
+            margin: 10px 0;
+            font-size: 14px;
+        }
+        
+        p {
+            margin: 15px 0;
+        }
+    </style>
 <body>
     <p>Hi {{ to_name }},</p>
 
     <p>Warm Regards!!</p>
 
-    <strong>Adherence Report - {{date}}</strong>
+    <h3><strong>Adherence Report - {{date}}</strong></h3>
 
     <p>The average same day data upload adherence for {{date}} is <b>{{avg_adherence}}%</b> across <b>{{active_Se}}</b> SEs out of total <b>{{total_se}}</b> device wearing SEs.</p>
 
@@ -188,34 +215,37 @@ template1 = """
 
     {{html_table1}}
 
-    <p> Where, D-1 stands for {{date}} and so on. Week starts from Sunday to Saturday. Week 1 starts from 1st of every month <br>
+    <p> Where, D-1 stands for {{date}} and so on. Week starts from Sunday to Saturday. PFB table for better understanding <br>
 
-    Record Hour Adherence (%) = Total Recorded Duration / Shift Duration * 100 <br>
+    {{html_table4}}
+    
+
+    <p>Record Hour Adherence (%) = Total Recorded Duration / Shift Duration * 100 <br>
 
     Note: We aim for atleast 85% record hour adherence for each SE.</p>
+    </p>
     
 
-    <strong>Actionable Insights</strong>
+    <h3><strong>Actionable Insights</strong></h3>
 
     <p>PFB the contribution of different reason for loss of sale for the month</p>
 
     {{html_table2}}
 
-    <p>PFB the contribution of different objections for the month</p>
-
-    {{html_table3}}
-
-    
-    <p>
+    <div class="definitions">
         <p><b>Definition of Reason for loss of sale Categories</b><br></p>
         <strong>Customer:</strong> The sale did not take place due to cusotmer centric reason for loss of sale.<br>
         <strong>Process:</strong> The sale did not take place due to organizational processes.<br>
         <strong>People:</strong> The sale did not take place due to staff in the store.<br>
         <strong>Price:</strong> The sale did not take place due to price of the product.<br>
         <strong>Product:</strong> The sale did not take place due to product limitation.<br>
-    </p>
-    
-    <p>
+    </div>
+
+    <p>PFB the contribution of different objections for the month</p>
+
+    {{html_table3}}
+
+    <div class="definitions">
         <p><b>Definition of Objection Categories</b><br></p>
         <strong>Merchandise Issue:</strong> The customer raised objection regarding products displayed.<br>
         <strong>Price Issue:</strong> Customer objected to high price of the products.<br>
@@ -225,76 +255,15 @@ template1 = """
         <strong>Customization Issue:</strong>  Customer raised objection regarding available customization options.<br>
         <strong>Negative Past Experience:</strong> Customer was dissatisfied with past negative experience and was concerned it would happen again.<br>
         <strong>Others:</strong> Anything which does not fall in the above categories.</br>
-    </p>
+    </div>
 
-    <p>
-        <p><b>Definition of Objection Handling</b><br></p>
-        <strong>Explanation:</strong> The response primarily explains or clarifies something.<br>
-        <strong>Solution:</strong> The response offers a concrete solution or action to address the objection.<br>
-        <strong>Generic:</strong> The response is neither a clear explanation nor a solution.<br>
-    </p>
+
     <p>Team<br>YOYO AI</p>
 </body>
 </html>
 
 """
 
-
-template2 = """
-
-<html>
-<body>
-    <p>Hi {{ to_name }},</p>
-
-    <p>Warm Regards!!</p>
-
-    <p>The same day data upload adherence for {{date}} is <b>0</b></p>
-
-    <p> Note: We aim for atleast 85% record hour adherence for each SE.</p>
-
-    <p><strong>Actionable Insights</strong></p>
-
-    <p>PFB the contribution of different reason for loss of sale for the month</p>
-
-    {{html_table2}}
-
-    <p>PFB the contribution of different objections for the month</p>
-
-    {{html_table3}}
-
-    <p>
-        <p><b>Definition of Reason for loss of sale Categories</b><br></p>
-        <strong>Customer:</strong> The sale did not take place due to cusotmer centric reason for loss of sale.<br>
-        <strong>Process:</strong> The sale did not take place due to organizational processes.<br>
-        <strong>People:</strong> The sale did not take place due to staff in the store.<br>
-        <strong>Price:</strong> The sale did not take place due to price of the product.<br>
-        <strong>Product:</strong> The sale did not take place due to product limitation.<br>
-    </p>
-    
-    <p>
-        <p><b>Definition of Objection Categories</b><br></p>
-        <strong>Merchandise Issue:</strong> The customer raised objection regarding products displayed.<br>
-        <strong>Price Issue:</strong> Customer objected to high price of the products.<br>
-        <strong>Offers and Discount Issue:</strong> The customer objected to missing offers/discounts/payment plans.<br>
-        <strong>After Sales Issue:</strong> Dissatisfaction with support after purchase, such as repair, exchange, or warranty handling.<br>
-        <strong>Delivery Timeline Issue:</strong> The customer raised objection regarding delivery timeline.<br>
-        <strong>Customization Issue:</strong>  Customer raised objection regarding available customization options.<br>
-        <strong>Negative Past Experience:</strong> Customer was dissatisfied with past negative experience and was concerned it would happen again.<br>
-        <strong>Others:</strong> Anything which does not fall in the above categories.</br>
-    </p>
-
-    <p>
-        <p><b>Definition of Objection Handling</b><br></p>
-        <strong>Explanation:</strong> The response primarily explains or clarifies something.<br>
-        <strong>Solution:</strong> The response offers a concrete solution or action to address the objection.<br>
-        <strong>Generic:</strong> The response is neither a clear explanation nor a solution.<br>
-    </p>
-
-    <p>Team<br>YOYO AI</p>
-</body>
-</html>
-
-"""
 
 brand_details = {
     "Lenskart": {
@@ -347,17 +316,6 @@ brand_details = {
         "shift_duration": "8:30:00"
     }
 }
-
-date_query = (datetime.now() - pd.Timedelta(days=1)).strftime('%Y-%m-%d')
-date_query_dt = pd.to_datetime(date_query)
-total_days = (date_query_dt - date_query_dt.replace(day=1)).days
-date_query_dt = datetime.strptime(date_query, "%Y-%m-%d")
-weekday = date_query_dt.weekday()
-start_of_week = date_query_dt - pd.Timedelta(days=(weekday + 1) % 7)
-end_of_week = start_of_week + pd.Timedelta(days=6)
-start_date_week = start_of_week.strftime('%Y-%m-%d')
-end_date_week = end_of_week.strftime('%Y-%m-%d')
-
 
 date_query = (datetime.now() - pd.Timedelta(days=1)).strftime('%Y-%m-%d')
 date_query_dt = pd.to_datetime(date_query)
@@ -979,4 +937,3 @@ LEFT JOIN device dev
         brand_name = brand_name.replace("_", " ").title()
     )
     send_html_email_gmail_api(service, 'reports@goyoyo.ai', to_emails, cc_emails, subject, email_content)
-        

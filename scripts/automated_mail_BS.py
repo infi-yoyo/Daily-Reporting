@@ -281,16 +281,52 @@ except Exception as e:
     print(f"Error encountered: {e}")
     connection.rollback()  # Rollback the transaction if an error occurs
 
+query3 = f"""
 
+   SELECT 
+	e.name as "ABM",
+	count(distinct(c.id)) as "Total Store Count",
+	count(distinct(b.id)) as "Total Executive Count"
+    FROM salesperson_stores as a 
+    left join sales_person as b on a.sp_id = b.id
+    left join store as c on b.store_id = c.id
+    left join area_business_manager as d on c.abm_id = d.id
+    left join users as e on d.user_id = e.id
+    WHERE a.start_date <= '{date_query}'  and coalesce(a.end_date, DATE '2099-12-31') >= '{date_query}'
+    and c.brand_id = 5
+    group by 1;
+    
+"""
+
+# Print the query to see the actual SQL string
+#print(f"Executing SQL Query:\n{query1}")
+
+try:
+    cursor.execute(query3)
+    
+    # Fetch the data
+    rows = cursor.fetchall()
+    
+    # Extract column names
+    column_names = [desc[0] for desc in cursor.description]
+    # Create the DataFrame using data and column names
+    df4 = pd.DataFrame(rows, columns=column_names)
+    
+    
+except Exception as e:
+    print(f"Error encountered: {e}")
+    connection.rollback()  # Rollback the transaction if an error occurs
 
 finally:
     cursor.close()
 
-merged_df = df3.merge(df1, on='ABM', how='left')
+merged_df = df3.merge(df4, on='ABM', how = 'left').merge(df1, on='ABM', how='left')
 merged_df = merged_df.applymap(lambda x: '-' if pd.isna(x) else (int(x) if isinstance(x, (int, float)) and float(x).is_integer() else x))
 merged_df = merged_df.sort_values(by='MTD GMS Sold (%)', ascending=False)
 totals = pd.DataFrame({
     "ABM": ["Grand Total"],
+    "Total Store Count": [df4["Total Store Count"].sum()],
+    "Total Executive Count": [df4["Total Executive Count"].sum()],
     "Store Count": [df1["Store Count"].sum()],
     "Executive Count": [df1["Executive Count"].sum()],
     "Total Interaction": [df1["Total Interaction"].sum()],
@@ -309,8 +345,9 @@ totals["MTD GMS Sold (%)"] = round((totals["MTD GMS Sold"] / totals["MTD GMS Pit
 
 # Append to df1
 merged_df = pd.concat([merged_df, totals], ignore_index=True)
-new_order = ['ABM', 'MTD GMS Pitched (%)', 'MTD GMS Sold (%)', 'Store Count', 'Executive Count', 'Total Interaction', 'GMS Pitched', 'GMS Pitched (%)', 'GMS Sold', 'GMS Sold (%)']
+new_order = ['Total Store Count', 'Total Executive Count', 'ABM', 'MTD GMS Pitched (%)', 'MTD GMS Sold (%)', 'Store Count', 'Executive Count', 'Total Interaction', 'GMS Pitched', 'GMS Pitched (%)', 'GMS Sold', 'GMS Sold (%)']
 merged_df = merged_df[new_order]
+
 
 template = """
 
@@ -387,7 +424,9 @@ template = """
         <p><strong>Link to dashboard:</strong> https://pilot.goyoyo.ai/ </p>
     </div>
     
-    <p><strong>Note:</strong> These customer interactions lasted for more than three minutes.</p>
+    <p><strong>Note:</strong> These customer interactions lasted for more than three minutes.<br>
+    Store Count: Count of stores in which AI has identified interactions for the defined date<br>
+    Executive Count: Count of executives in which AI has identified interactions for the defined date </p>
 
     <p>Regards,<br>Adarsh.</p>
 </body>

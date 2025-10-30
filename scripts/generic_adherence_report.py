@@ -281,7 +281,8 @@ brand_details = {
         "to": [
             "mayank@landcraftagro.com",
             "joe@landcraftretail.com",
-            "shruti@landcraftretail.com"
+            "shruti@landcraftretail.com",
+			"kunalganger@landcraftretail.com"
         ],
         "main_person": "Mayank",
         "cc": ["harshal@goyoyo.ai", "rohan@goyoyo.ai", "nikhil@goyoyo.ai", "pranet@goyoyo.ai", "adarsh@goyoyo.ai"],

@@ -345,7 +345,7 @@ totals["MTD GMS Sold (%)"] = round((totals["MTD GMS Sold"] / totals["MTD GMS Pit
 
 # Append to df1
 merged_df = pd.concat([merged_df, totals], ignore_index=True)
-new_order = ['Total Store Count', 'Total Executive Count', 'ABM', 'MTD GMS Pitched (%)', 'MTD GMS Sold (%)', 'Store Count', 'Executive Count', 'Total Interaction', 'GMS Pitched', 'GMS Pitched (%)', 'GMS Sold', 'GMS Sold (%)']
+new_order = ['ABM', 'Total Store Count', 'Total Executive Count', 'MTD GMS Pitched (%)', 'MTD GMS Sold (%)', 'Store Count', 'Executive Count', 'Total Interaction', 'GMS Pitched', 'GMS Pitched (%)', 'GMS Sold', 'GMS Sold (%)']
 merged_df = merged_df[new_order]
 
 

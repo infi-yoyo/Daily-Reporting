@@ -315,6 +315,14 @@ brand_details = {
         "main_person": "Sourav",
         "cc": ["harshal@goyoyo.ai", "rohan@goyoyo.ai", "nikhil@goyoyo.ai", "pranet@goyoyo.ai", "adarsh@goyoyo.ai"],
         "shift_duration": "8:30:00"
+    },
+    "Experience Carbon": {
+        "to": [
+            "jaibegani@gmail.com", "Shahkhushvi027@gmail.com", "param@experiencecarbon.com"
+        ],
+        "main_person": "Param",
+        "cc": ["harshal@goyoyo.ai", "rohan@goyoyo.ai", "nikhil@goyoyo.ai", "pranet@goyoyo.ai", "adarsh@goyoyo.ai"],
+        "shift_duration": "8:30:00"
     }
 }
 
@@ -935,6 +943,6 @@ LEFT JOIN device dev
         # Render the subject using Jinja2
     subject = Template(subject_template).render(
         date_query=dt_f,
-        brand_name = brand_name.replace("_", " ").title()
+        brand_name = brand_name
     )
     send_html_email_gmail_api(service, 'reports@goyoyo.ai', to_emails, cc_emails, subject, email_content)

@@ -102,11 +102,7 @@ def service_gmail_api():
 
 service = service_gmail_api()
 
-cc_emails = ["prakhar@goyoyo.ai", "nikhil@goyoyo.ai", "harshal@goyoyo.ai", "adarsh@goyoyo.ai"]
-#cc_emails = []
 
-to_emails = ['adnan.kazim@wakefit.co', 'santhosh.hd@wakefit.co', 'dibyendu.panda@wakefit.co', 'ambarish.varadan@wakefit.co', 'mohit.goyal@wakefit.co']
-#to_emails = ['adarsh@goyoyo.ai']
 
 def create_html_message(
     sender,
@@ -200,7 +196,7 @@ def create_connection():
 # Create connection
 connection = create_connection()
 
-cc_emails = ["prakhar@goyoyo.ai", "nikhil@goyoyo.ai", "harshal@goyoyo.ai", "adarsh@goyoyo.ai"]
+cc_emails = ["prakhar@goyoyo.ai", "nikhil@goyoyo.ai", "harshal@goyoyo.ai", "adarsh@goyoyo.ai", "rohan@goyoyo.ai", "pranet@goyoyo.ai"]
 #cc_emails = ["adarsh@goyoyo.ai"]
 
 to_emails = [

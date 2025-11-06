@@ -597,6 +597,25 @@ renamed_columns = {
 
 final = final.rename(columns=renamed_columns)
 
+totals = pd.DataFrame({
+    "ABM": ["Grand Total"],
+    "Total Devices": [final["Total Devices"].sum()],
+    "Inactive Devices": [final["Inactive Devices"].sum()],
+    "Total Active Devices": [final["Total Active Devices"].sum()],
+    "Same Day Not Received": [final["Same Day Not Received"].sum()],
+    "Same Day Received": [final["Same Day Received"].sum()],
+    "Total Files": [final["Total Files"].sum()]
+})
+    
+totals["Active Device %"]= pd.to_numeric(final["Active Device %"].str.replace('%', ''), errors='coerce').mean().round(0).astype('int').astype(str) + '%'
+totals["Recording Hour Adherence (%)"]= pd.to_numeric(final["Recording Hour Adherence (%)"].str.replace('%', ''), errors='coerce').mean().round(0).astype('int').astype(str) + '%'
+totals["Blank Files (%)"]= pd.to_numeric(final["Blank Files (%)"].str.replace('%', ''), errors='coerce').mean().round(0).astype('int').astype(str) + '%'
+totals["Recorded Hour Adherence (WTD) (%)"]= pd.to_numeric(final["Recorded Hour Adherence (WTD) (%)"].str.replace('%', ''), errors='coerce').mean().round(0).astype('int').astype(str) + '%'
+totals["Recorded Hour Adherence (MTD) (%)"]= pd.to_numeric(final["Recorded Hour Adherence (MTD) (%)"].str.replace('%', ''), errors='coerce').mean().round(0).astype('int').astype(str) + '%'
+
+final = pd.concat([final, totals], ignore_index=True)
+final['Total Files'] = final['Total Files'].astype('Int64')
+
 csv_bytes = df_to_csv_bytes(df1)
 date_str = date_query  # e.g., "2025-11-05"
 

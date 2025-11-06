@@ -24,7 +24,7 @@ import base64
 
 
 # Define SCOPES
-SCOPES = ['https://www.googleapis.com/auth/gmail.send']  # Adjust as needed for your use case
+SCOPES = ['https://www.googleapis.com/auth/gmail.send', 'https://www.googleapis.com/auth/gmail.readonly']  # Adjust as needed for your use case
 
 
 

@@ -2,8 +2,8 @@ name: Bluestone Adherence Report
 
 on:
   schedule:
-    # Runs daily at 04:00 AM UTC (09:30 AM IST)
-    - cron: '0 4 * * *'
+    # Runs daily at 08:00 AM UTC (1:30 PM IST)
+    - cron: '0 8 * * *'
   workflow_dispatch:  # Allows manual triggering
 
 jobs:

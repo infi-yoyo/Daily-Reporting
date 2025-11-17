@@ -723,6 +723,6 @@ subject = Template(subject_template).render(
     end_date_week = de_f
 )
 
-send_html_email_gmail_api(service,'reports@goyoyo.ai',to_emails,cc_emails,subject,email_content, attachments=[(f"WF_{date_str}.csv", csv_bytes, "text", "csv")] )
+send_html_email_gmail_api(service,'reports@goyoyo.ai',to_emails,cc_emails,subject,email_content, attachments=[(f"BS_{date_str}.csv", csv_bytes, "text", "csv")] )
 
    

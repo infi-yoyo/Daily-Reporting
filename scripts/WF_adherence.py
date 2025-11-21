@@ -196,11 +196,23 @@ def create_connection():
 # Create connection
 connection = create_connection()
 
-cc_emails = []
+cc_emails = ["prakhar@goyoyo.ai", "nikhil@goyoyo.ai", "harshal@goyoyo.ai", "adarsh@goyoyo.ai", "rohan@goyoyo.ai", "pranet@goyoyo.ai"]
 #cc_emails = ["adarsh@goyoyo.ai"]
 
 to_emails = [
-    "adarsh@goyoyo.ai"
+    "adnan.kazim@wakefit.co",
+    "deepak.kumar1@wakefit.co",
+    "sanket.deshmukh@wakefit.co",
+    "nitin.yadav@wakefit.co",
+    "sakshi.mishra@wakefit.co",
+    "mayank.gaurav@wakefit.co",
+    "mohit.goyal@wakefit.co",
+    "abhishek.dhariya@wakefit.co",
+    "animesh.mondal@wakefit.co",
+    "raghuveer.singh@wakefit.co",
+    "nithin.rajan@wakefit.co",
+    "santhosh.hd@wakefit.co"
+]
 ]
 
 

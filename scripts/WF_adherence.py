@@ -203,29 +203,219 @@ to_emails = [
     "adarsh@goyoyo.ai"
 ]
 
+
 template = """
-
 <html>
+<head>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        
+        .email-container {
+            background-color: #ffffff;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        
+        h2 {
+            color: #2c3e50;
+            border-bottom: 3px solid #3498db;
+            padding-bottom: 10px;
+            margin-bottom: 20px;
+            font-size: 20px;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+            font-size: 13px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        
+        thead {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        
+        thead th {
+            padding: 14px 10px;
+            text-align: center;
+            font-weight: 600;
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            border-right: 1px solid rgba(255,255,255,0.2);
+        }
+        
+        thead th:first-child {
+            text-align: left;
+            padding-left: 20px;
+        }
+        
+        thead th:last-child {
+            border-right: none;
+        }
+        
+        tbody td {
+            padding: 12px 10px;
+            text-align: center;
+            border-bottom: 1px solid #e0e0e0;
+        }
+        
+        tbody td:first-child {
+            text-align: left;
+            font-weight: 600;
+            color: #2c3e50;
+            padding-left: 20px;
+        }
+        
+        tbody tr {
+            background-color: #ffffff;
+            transition: all 0.3s ease;
+        }
+        
+        tbody tr:nth-child(even) {
+            background-color: #f8f9fa;
+        }
+        
+        tbody tr:hover {
+            background-color: #e3f2fd;
+            transform: scale(1.01);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        
+        /* Grand Total row styling */
+        tbody tr.grand-total {
+            background: linear-gradient(135deg, #ffeaa7 0%, #fdcb6e 100%) !important;
+            font-weight: 700 !important;
+            border-top: 3px solid #fdcb6e !important;
+        }
+        
+        tbody tr.grand-total td {
+            border-bottom: none !important;
+            color: #2d3436 !important;
+            font-weight: 700 !important;
+        }
+        
+        tbody tr.grand-total:hover {
+            background: linear-gradient(135deg, #ffd970 0%, #f9b54c 100%) !important;
+            transform: scale(1.01);
+            box-shadow: 0 3px 10px rgba(0,0,0,0.15) !important;
+        }
+        
+        /* Color coding for percentages */
+        .excellent {
+            background-color: #d4edda;
+            color: #155724;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+        }
+        
+        .good {
+            background-color: #d1ecf1;
+            color: #0c5460;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+        }
+        
+        .warning {
+            background-color: #fff3cd;
+            color: #856404;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+        }
+        
+        .poor {
+            background-color: #f8d7da;
+            color: #721c24;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+        }
+        
+        .summary-box {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 15px 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        
+        .summary-box p {
+            margin: 5px 0;
+            font-size: 14px;
+        }
+        
+        .date-range {
+            background-color: #f8f9fa;
+            border-left: 4px solid #3498db;
+            padding: 12px 15px;
+            margin: 15px 0;
+            border-radius: 4px;
+            font-size: 13px;
+        }
+        
+        .footer {
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 2px solid #e0e0e0;
+            color: #7f8c8d;
+            font-size: 13px;
+        }
+        
+        .highlight {
+            background-color: #fff9e6;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-weight: 600;
+        }
+    </style>
+</head>
 <body>
-    <p>Hi Wakefit,</p>
+    <div class="email-container">
+        <h2>Same Day Data Upload Adherence Report</h2>
+        
+        <p>Hi Wakefit Team,</p>
 
-    <p>PFA the same day data upload adherence for {{date_query}}. We have updated the report to reflect the data of the last 7 days and MTD.</p>
+        <div class="summary-box">
+            <p><strong>Report Date:</strong> {{date_query}}</p>
+            <p>This report reflects data upload adherence over the last 7 days and MTD</p>
+        </div>
 
-    <p>PFB the summary of same date data upload adherence on {{date_query}}.</p>
-    
-    {{html_table1}}
+        <p>Please find below the summary of same day data upload adherence for <span class="highlight">{{date_query}}</span>:</p>
+        
+        {{html_table1}}
 
-    <p>
-        WTD: {{start_date_week}} to {{date_query}} <br>
-        MTD: {{start_date_month}} to {{date_query}}
-    </p>
+        <div class="date-range">
+            <strong>Date Ranges:</strong><br>
+            <strong>WTD:</strong> {{start_date_week}} to {{date_query}}<br>
+            <strong>MTD:</strong> {{start_date_month}} to {{date_query}}
+        </div>
 
-
-    <p>Regards,<br>YOYO AI.</p>
+        <div class="footer">
+            <p><strong>Best regards,</strong><br>YOYO AI Team</p>
+        </div>
+    </div>
 </body>
 </html>
-
 """
+
+
 
 # Set the date as current date - 1
 date_query = (datetime.now() - pd.Timedelta(days=1)).strftime('%Y-%m-%d')

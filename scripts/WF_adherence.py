@@ -196,22 +196,11 @@ def create_connection():
 # Create connection
 connection = create_connection()
 
-cc_emails = ["prakhar@goyoyo.ai", "nikhil@goyoyo.ai", "harshal@goyoyo.ai", "adarsh@goyoyo.ai", "rohan@goyoyo.ai", "pranet@goyoyo.ai"]
+cc_emails = []
 #cc_emails = ["adarsh@goyoyo.ai"]
 
 to_emails = [
-    "adnan.kazim@wakefit.co",
-    "deepak.kumar1@wakefit.co",
-    "sanket.deshmukh@wakefit.co",
-    "nitin.yadav@wakefit.co",
-    "sakshi.mishra@wakefit.co",
-    "mayank.gaurav@wakefit.co",
-    "mohit.goyal@wakefit.co",
-    "abhishek.dhariya@wakefit.co",
-    "animesh.mondal@wakefit.co",
-    "raghuveer.singh@wakefit.co",
-    "nithin.rajan@wakefit.co",
-    "santhosh.hd@wakefit.co"
+    "adarsh@goyoyo.ai"
 ]
 
 template = """
@@ -243,20 +232,18 @@ date_query = (datetime.now() - pd.Timedelta(days=1)).strftime('%Y-%m-%d')
 #date_query = pd.to_datetime('2025-11-03').strftime('%Y-%m-%d')
 
 date_query_dt = datetime.strptime(date_query, "%Y-%m-%d")
-today = datetime.now()
+
 start_of_month = date_query_dt.replace(day=1)
 wtd_range_start = max(date_query_dt.replace(day=1), date_query_dt - timedelta(days=6))
 wtd_range_start_dt = wtd_range_start.strftime('%Y-%m-%d')
 start_date_month = start_of_month.strftime('%Y-%m-%d')
-date_2_days_ago = today - pd.Timedelta(days=2)
-start_of_week = date_2_days_ago - pd.Timedelta(days=date_2_days_ago.weekday())
+weekday_idx = date_query_dt.weekday()
+start_of_week = date_query_dt - pd.Timedelta(days=weekday_idx)
 end_of_week = start_of_week + pd.Timedelta(days=6)
 start_date_week = start_of_week.strftime('%Y-%m-%d')
 end_date_week = end_of_week.strftime('%Y-%m-%d')
 diff = (date_query_dt - wtd_range_start).days
 diff2 = (date_query_dt - start_of_month).days + 1
-
-
 
 # Check if the connection is still open
 if connection.closed == 0:
@@ -621,6 +608,10 @@ totals["Recorded Hour Adherence (MTD) (%)"]= pd.to_numeric(final["Recorded Hour 
 
 final = pd.concat([final, totals], ignore_index=True)
 final['Total Files'] = final['Total Files'].astype('Int64')
+df1 = df1.sort_values(
+    by=['ABM', 'Store', 'Staff Name'],
+    ascending=[False, False, False]
+)
 
 csv_bytes = df_to_csv_bytes(df1)
 date_str = date_query  # e.g., "2025-11-05"
@@ -629,23 +620,34 @@ date_str = date_query  # e.g., "2025-11-05"
 cols = final.columns
 rows_html = []
 
-for _, row in final.iterrows():
+for idx, row in final.iterrows():
+    # Check if this is the Grand Total row
+    is_grand_total = str(row[cols[0]]).strip() == "Grand Total"
+    
+    # Add class to the row if it's Grand Total
+    row_class = ' class="grand-total"' if is_grand_total else ''
+    
     cells = []
     for col in cols:
         cell_value = row[col]
-        style = "text-align:center;border:1px solid #000;"
-        cells.append(f"<td style='{style}'>{cell_value}</td>")
+        style = "text-align:center;border:1px solid #ddd;padding:12px 10px;"
         
-    rows_html.append("<tr>" + "".join(cells) + "</tr>")
+        # First column (ABM name) should be left-aligned
+        if col == cols[0]:
+            style = "text-align:left;border:1px solid #ddd;padding:12px 10px;padding-left:20px;font-weight:600;"
+        
+        cells.append(f"<td style='{style}'>{cell_value}</td>")
+    
+    rows_html.append(f"<tr{row_class}>" + "".join(cells) + "</tr>")
 
 html_table_final = ( 
-    "<table border='1' cellpadding='6' cellspacing='0' " 
+    "<table border='0' cellpadding='0' cellspacing='0' " 
     "style='border-collapse:collapse;font-family:Arial,sans-serif;font-size:13px;width:100%;'>" 
     "<thead><tr>" 
-    + "".join([f"<th>{c}</th>" for c in cols]) 
+    + "".join([f"<th style='padding:14px 10px;text-align:center;'>{c}</th>" for c in cols]) 
     + "</tr></thead><tbody>" 
     + "".join(rows_html) + "</tbody></table>" 
-    )
+)
 
 
 dt = datetime.strptime(date_query, "%Y-%m-%d")

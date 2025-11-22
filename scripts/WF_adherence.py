@@ -213,7 +213,7 @@ to_emails = [
     "nithin.rajan@wakefit.co",
     "santhosh.hd@wakefit.co"
 ]
-]
+
 
 
 template = """

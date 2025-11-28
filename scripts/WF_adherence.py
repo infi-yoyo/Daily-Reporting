@@ -211,8 +211,11 @@ to_emails = [
     "animesh.mondal@wakefit.co",
     "raghuveer.singh@wakefit.co",
     "nithin.rajan@wakefit.co",
-    "santhosh.hd@wakefit.co"
+    "santhosh.hd@wakefit.co",
+    "karthik.s1@wakefit.co",
+    "karthik.s1@wakefit.co"
 ]
+
 
 
 

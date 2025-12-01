@@ -318,7 +318,7 @@ brand_details = {
     },
     "Experience Carbon": {
         "to": [
-            "jaibegani@gmail.com", "Shahkhushvi027@gmail.com", "param@experiencecarbon.com"
+            "jaibegani@gmail.com", "Shahkhushvi027@gmail.com", "param@experiencecarbon.com", "Contact@experiencecarbon.com"
         ],
         "main_person": "Param",
         "cc": ["harshal@goyoyo.ai", "rohan@goyoyo.ai", "nikhil@goyoyo.ai", "pranet@goyoyo.ai", "adarsh@goyoyo.ai"],

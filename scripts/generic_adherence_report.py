@@ -324,6 +324,15 @@ brand_details = {
         "cc": ["harshal@goyoyo.ai", "rohan@goyoyo.ai", "nikhil@goyoyo.ai", "pranet@goyoyo.ai", "adarsh@goyoyo.ai"],
         "shift_duration": "8:30:00"
     }
+	,
+    "OLA Electric": {
+        "to": [
+            "anirban.das@olaelectric.com", "rudrakshi.singhal@olaelectric.com", "tushar.mehndiratta@olacabs.com", "chandan.mishra2@olaelectric.com", "manjunath.oovappa@olaelectric.com", "np@olaelectric.com"
+        ],
+        "main_person": "Rudrakshi",
+        "cc": ["harshal@goyoyo.ai", "rohan@goyoyo.ai", "nikhil@goyoyo.ai", "pranet@goyoyo.ai", "adarsh@goyoyo.ai"],
+        "shift_duration": "10:00:00"
+    }
 }
 
 date_query = (datetime.now() - pd.Timedelta(days=1)).strftime('%Y-%m-%d')

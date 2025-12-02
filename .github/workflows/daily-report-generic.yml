@@ -3,7 +3,7 @@ name: Daily Generic Report
 on:
   schedule:
     # Runs daily at 9:30 AM UTC (3:00 PM IST)
-    #- cron: '30 4 * * *'
+    - cron: '30 4 * * *'
   workflow_dispatch:  # Allows manual triggering
 
 jobs:

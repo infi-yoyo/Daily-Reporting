@@ -10,6 +10,7 @@ from typing import Optional
 import numpy as np
 import pandas as pd
 from jinja2 import Template
+import math
 
 # Google API Libraries
 from google.auth.transport.requests import Request

@@ -100,45 +100,75 @@ def service_gmail_api():
 
 service = service_gmail_api()
 
-cc_emails = ["prakhar@goyoyo.ai", "nikhil@goyoyo.ai", "harshal@goyoyo.ai", "adarsh@goyoyo.ai"]
-#cc_emails = []
+#cc_emails = ["prakhar@goyoyo.ai", "nikhil@goyoyo.ai", "harshal@goyoyo.ai", "adarsh@goyoyo.ai"]
+cc_emails = []
 
-to_emails = ["mudita.gupta@bluestone.com", "gaurav.sachdeva@bluestone.com", "kshitij.arora@bluestone.com", "chaitanya.raheja@bluestone.com", "anubha.rustagi@bluestone.com"]
-#to_emails = ['adarsh@goyoyo.ai']
+#to_emails = ["mudita.gupta@bluestone.com", "gaurav.sachdeva@bluestone.com", "kshitij.arora@bluestone.com", "chaitanya.raheja@bluestone.com", "anubha.rustagi@bluestone.com"]
+to_emails = ['adarsh@goyoyo.ai']
 
-def create_html_message(sender, to, subject, html_content, cc_emails):
-    """Create a message with HTML content for Gmail API."""
-    
-    # Create multipart message
-    message = MIMEMultipart('alternative')
-    message['to'] = ', '.join(to_emails)
+def create_html_message(
+    sender,
+    to_emails,                         # <- fix: was `to`
+    subject,
+    html_content,
+    cc_emails=None,
+    attachment_paths=None,             # optional: disk files
+    attachments=None                   # optional: in-memory [(filename, bytes, mime_main, mime_sub)]
+):
+    """Create a Gmail API message with HTML + optional attachments (paths or in-memory)."""
+    cc_emails = cc_emails or []
+    attachment_paths = attachment_paths or []
+    attachments = attachments or []
+
+    # multipart/mixed container (for attachments); HTML body can be directly attached
+    message = MIMEMultipart('mixed')
     message['from'] = sender
-    message['cc'] = ', '.join(cc_emails)
+    message['to'] = ', '.join(to_emails)
+    if cc_emails:
+        message['cc'] = ', '.join(cc_emails)
     message['subject'] = subject
-    
-    # Create HTML part - this is crucial for formatting
-    html_part = MIMEText(html_content, 'html', 'utf-8')
-    message.attach(html_part)
-    
-    # Encode message
+
+    # HTML body
+    message.attach(MIMEText(html_content, 'html', 'utf-8'))
+
+    # File-path attachments
+    for path in attachment_paths:
+        if not os.path.exists(path):
+            print(f"⚠️ File not found, skipping: {path}")
+            continue
+        with open(path, 'rb') as f:
+            payload = f.read()
+        part = MIMEBase('application', 'octet-stream')
+        part.set_payload(payload)
+        encoders.encode_base64(part)
+        part.add_header('Content-Disposition', f'attachment; filename="{os.path.basename(path)}"')
+        message.attach(part)
+
+    # In-memory attachments
+    for filename, blob, mime_main, mime_sub in attachments:
+        part = MIMEBase(mime_main, mime_sub)
+        part.set_payload(blob)
+        encoders.encode_base64(part)
+        part.add_header('Content-Disposition', f'attachment; filename="{filename}"')
+        # Add a Content-Type header for clarity (especially for CSV)
+        part.add_header('Content-Type', f'{mime_main}/{mime_sub}; name="{filename}"')
+        message.attach(part)
+
     raw_message = base64.urlsafe_b64encode(message.as_bytes()).decode('utf-8')
-    
     return {'raw': raw_message}
 
-def send_html_email_gmail_api(service, sender_email, to_emails, cc_emails, subject, html_content):
+
+def send_html_email_gmail_api(service, sender_email, to_emails, cc_emails, subject, html_content,
+                              attachment_paths=None, attachments=None):
     """Send HTML email using Gmail API."""
-    
-    message = create_html_message(sender_email, to_emails, subject, html_content, cc_emails)
-    
+    message = create_html_message(
+        sender_email, to_emails, subject, html_content, cc_emails,
+        attachment_paths=attachment_paths, attachments=attachments
+    )
     try:
-        sent_message = service.users().messages().send(
-            userId='me', 
-            body=message
-        ).execute()
-        print(f'Message Id: {sent_message["id"]}')
-        return sent_message
-    except Exception as error:
-        print(f'An error occurred: {error}')
+        return service.users().messages().send(userId='me', body=message).execute()
+    except Exception as e:
+        print(f'An error occurred: {e}')
         return None
 
 def sort_by_total_interaction(df, ascending=False):
@@ -155,6 +185,11 @@ def sort_by_total_interaction(df, ascending=False):
     else:
         sorted_idx = key.sort_values(ascending=ascending).index
         return df.loc[sorted_idx]
+
+def df_to_csv_bytes(df: pd.DataFrame) -> bytes:
+    buf = io.BytesIO()
+    df.to_csv(buf, index=False, encoding='utf-8-sig')
+    return buf.getvalue()
 
 
 # 1. Connect to your Database
@@ -317,8 +352,58 @@ except Exception as e:
     print(f"Error encountered: {e}")
     connection.rollback()  # Rollback the transaction if an error occurs
 
+
+query4 = f"""
+
+  SELECT 
+	g.name as "ABM",
+	c.name as "Store",
+    d.name as "Staff Name",
+    b.date as "Date",
+	count(a.id) as "Total Interaction", 
+	COALESCE(SUM( (elem1->>'gms_pitched')::int ), 0) AS "GMS Pitched",
+	COALESCE(SUM( (elem1->>'gms_sold')::int ), 0) AS "GMS Sold"
+    FROM bluestone_interaction_flags as a 
+    LEFT JOIN interaction_processed AS b on a.interaction_id = b.id
+    LEFT JOIN store AS c ON b.store_id = c.id
+    left join area_business_manager as f on c.abm_id = f.id
+    left join users as g on f.user_id = g.id
+    left join sales_person as d on b.sales_person_id = d.id
+    LEFT JOIN LATERAL jsonb_array_elements(a.sop_new) AS elem1 ON TRUE
+    WHERE b.date = '{date_query}'  
+    and cast(b.duration as integer) > 180000
+    group by 1,2,3,4;
+    
+"""
+
+# Print the query to see the actual SQL string
+#print(f"Executing SQL Query:\n{query1}")
+
+try:
+    cursor.execute(query4)
+    
+    # Fetch the data
+    rows = cursor.fetchall()
+    
+    # Extract column names
+    column_names = [desc[0] for desc in cursor.description]
+    # Create the DataFrame using data and column names
+    df_raw = pd.DataFrame(rows, columns=column_names)
+    
+    
+except Exception as e:
+    print(f"Error encountered: {e}")
+    connection.rollback()  # Rollback the transaction if an error occurs
+	
+
 finally:
     cursor.close()
+
+df_raw = df_raw.sort_values(
+    by=['ABM', 'Store', 'Staff Name'],
+    ascending=[False, False, False]
+)
+csv_bytes = df_to_csv_bytes(df_raw)
 
 merged_df = df3.merge(df4, on='ABM', how = 'left').merge(df1, on='ABM', how='left')
 merged_df = merged_df.applymap(lambda x: '-' if pd.isna(x) else (int(x) if isinstance(x, (int, float)) and float(x).is_integer() else x))
@@ -575,4 +660,4 @@ subject_template = 'BlueStone <> YOYO AI - Actionable Insights - {{ date_query }
 subject = Template(subject_template).render(date_query=date_query)
 
 # Send the email
-send_html_email_gmail_api(service, 'report@goyoyo.ai', to_emails, cc_emails, subject, email_content)
+send_html_email_gmail_api(service, 'report@goyoyo.ai', to_emails, cc_emails, subject, email_content, attachments=[(f"BS_GMS_GRP_{date_query}.csv", csv_bytes, "text", "csv")] )

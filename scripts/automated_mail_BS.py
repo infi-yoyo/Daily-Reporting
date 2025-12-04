@@ -5,7 +5,7 @@ from email.mime.text import MIMEText
 from jinja2 import Template
 import pandas as pd
 import psycopg2  # Assuming you're using PostgreSQL
-from datetime import datetime
+from datetime import datetime, timedelta
 from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
@@ -18,6 +18,7 @@ import json
 from pathlib import Path
 import numpy as np
 import math
+import io
 
 
 

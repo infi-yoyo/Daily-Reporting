@@ -134,7 +134,7 @@ def create_html_message(
     message.attach(MIMEText(html_content, 'html', 'utf-8'))
 
     # File-path attachments
-	from email.encoders import encode_base64
+
     for path in attachment_paths:
         if not os.path.exists(path):
             print(f"⚠️ File not found, skipping: {path}")

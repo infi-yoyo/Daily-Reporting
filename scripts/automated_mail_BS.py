@@ -1,7 +1,5 @@
 # %%
 import smtplib
-from email.mime.multipart import MIMEMultipart
-from email.mime.text import MIMEText
 from jinja2 import Template
 import pandas as pd
 import psycopg2  # Assuming you're using PostgreSQL
@@ -9,6 +7,9 @@ from datetime import datetime, timedelta
 from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
+from email.mime.base import MIMEBase
 import base64
 import os
 from google.auth.transport.requests import Request

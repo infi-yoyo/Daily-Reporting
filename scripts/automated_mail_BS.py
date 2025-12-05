@@ -110,11 +110,26 @@ def service_gmail_api():
 
 service = service_gmail_api()
 
-cc_emails = ["prakhar@goyoyo.ai", "nikhil@goyoyo.ai", "harshal@goyoyo.ai", "adarsh@goyoyo.ai"]
+cc_emails = ["mudita.gupta@bluestone.com", "gaurav.sachdeva@bluestone.com", "kshitij.arora@bluestone.com", "chaitanya.raheja@bluestone.com", "anubha.rustagi@bluestone.com", "prakhar@goyoyo.ai", "nikhil@goyoyo.ai", "harshal@goyoyo.ai", "adarsh@goyoyo.ai"]
 #cc_emails = []
 
-to_emails = ["mudita.gupta@bluestone.com", "gaurav.sachdeva@bluestone.com", "kshitij.arora@bluestone.com", "chaitanya.raheja@bluestone.com", "anubha.rustagi@bluestone.com"]
-#to_emails = ['adarsh@goyoyo.ai']
+to_emails =
+["mudita.gupta@bluestone.com",
+    "gaurav.sachdeva@bluestone.com",
+    "kshitij.arora@bluestone.com",
+    "chaitanya.raheja@bluestone.com",
+    "anubha.rustagi@bluestone.com",
+    "aditya.mittal@bluestone.com",
+    "Ansh.Gupta@bluestone.com",
+    "archisha.chandna@bluestone.com",
+    "harleen.valechani@bluestone.com",
+    "harshul.devarchana@bluestone.com",
+    "jeevan.babyloni@bluestone.com",
+    "nikhil.sachdeva@bluestone.com",
+    "parth.tyagi@bluestone.com",
+    "urvi.haldipur@bluestone.com"
+]
+
 
 def create_html_message(
     sender,
@@ -368,8 +383,9 @@ query4 = f"""
 
   SELECT 
 	g.name as "ABM",
-	c.name as "Store",
-    d.name as "Staff Name",
+	c.name as "Store Name",
+    d.name as "Sales Person",
+    d.email as "E-Mail ID",
     b.date as "Date",
 	count(a.id) as "Total Interaction", 
 	COALESCE(SUM( (elem1->>'gms_pitched')::int ), 0) AS "GMS Pitched",
@@ -383,7 +399,7 @@ query4 = f"""
     LEFT JOIN LATERAL jsonb_array_elements(a.sop_new) AS elem1 ON TRUE
     WHERE b.date = '{date_query}'  
     and cast(b.duration as integer) > 180000
-    group by 1,2,3,4;
+    group by 1,2,3,4,5;
     
 """
 

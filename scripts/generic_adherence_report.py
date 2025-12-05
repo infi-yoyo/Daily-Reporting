@@ -288,17 +288,6 @@ brand_details = {
         "cc": ["harshal@goyoyo.ai", "rohan@goyoyo.ai", "nikhil@goyoyo.ai", "pranet@goyoyo.ai", "adarsh@goyoyo.ai"],
         "shift_duration": "8:00:00"
     },
-    "Clovia": {
-        "to": [
-            "sshruti.k@clovia.com",
-            "neha@clovia.com",
-            "jaya@thejoop.ai",
-            "shaireen.khan@clovia.com>"
-        ],
-        "main_person": "Neha",
-        "cc": ["harshal@goyoyo.ai", "rohan@goyoyo.ai", "nikhil@goyoyo.ai", "pranet@goyoyo.ai", "adarsh@goyoyo.ai"],
-        "shift_duration": "8:00:00"
-    },
     "Sri Jagdamba Pearls": {
         "to": [
             "deepak.kumar@jpearls.com",

@@ -520,6 +520,9 @@ template = """
 """
 
 
+date_query = (datetime.now() - pd.Timedelta(days=1)).strftime('%Y-%m-%d')
+start_of_month = date_query_dt.replace(day=1)
+start_date_month = start_of_month.strftime('%Y-%m-%d')
 
 
 # ---------- USER CONFIG ----------
@@ -536,9 +539,6 @@ try:
 except Exception as exc:
     print("Error:", exc)
 
-date_query = (datetime.now() - pd.Timedelta(days=1)).strftime('%Y-%m-%d')
-start_of_month = date_query_dt.replace(day=1)
-start_date_month = start_of_month.strftime('%Y-%m-%d')
 
 
 if connection.closed == 0:

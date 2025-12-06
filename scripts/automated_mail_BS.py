@@ -113,8 +113,7 @@ service = service_gmail_api()
 cc_emails = ["mudita.gupta@bluestone.com", "gaurav.sachdeva@bluestone.com", "kshitij.arora@bluestone.com", "chaitanya.raheja@bluestone.com", "anubha.rustagi@bluestone.com", "prakhar@goyoyo.ai", "nikhil@goyoyo.ai", "harshal@goyoyo.ai", "adarsh@goyoyo.ai"]
 #cc_emails = []
 
-to_emails =
-["mudita.gupta@bluestone.com",
+to_emails = ["mudita.gupta@bluestone.com",
     "gaurav.sachdeva@bluestone.com",
     "kshitij.arora@bluestone.com",
     "chaitanya.raheja@bluestone.com",

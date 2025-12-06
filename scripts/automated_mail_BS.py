@@ -244,15 +244,11 @@ connection.rollback()
 
 # Set the date as current date - 2
 date_query = (datetime.now() - pd.Timedelta(days=2)).strftime('%Y-%m-%d')
-date_query_dt = datetime.strptime(date_query, "%Y-%m-%d")
+date_query_start = (datetime.now() - pd.Timedelta(days=7)).strftime('%Y-%m-%d')
 today = datetime.now()
 start_of_month = date_query_dt.replace(day=1)
 start_date_month = start_of_month.strftime('%Y-%m-%d')
-date_2_days_ago = today - pd.Timedelta(days=2)
-start_of_week = date_2_days_ago - pd.Timedelta(days=date_2_days_ago.weekday())
-end_of_week = start_of_week + pd.Timedelta(days=6)
-start_date_week = start_of_week.strftime('%Y-%m-%d')
-end_date_week = end_of_week.strftime('%Y-%m-%d')
+
 
 
 query1 = f"""
@@ -270,7 +266,7 @@ query1 = f"""
     left join area_business_manager as f on c.abm_id = f.id
     left join users as g on f.user_id = g.id
     LEFT JOIN LATERAL jsonb_array_elements(a.sop_new) AS elem1 ON TRUE
-    WHERE b.date = '{date_query}'  
+    WHERE b.date between '{date_query_start}' and '{date_query}'  
     and cast(b.duration as integer) > 180000
     group by 1;
     
@@ -680,10 +676,10 @@ email_content = email_template.render(
     )
 
 
-subject_template = 'BlueStone <> YOYO AI - Actionable Insights - {{ date_query }}'
+subject_template = 'BlueStone <> YOYO AI - Actionable Insights: {{date_query_start}} - {{ date_query }}'
 
 # Render the subject using Jinja2
-subject = Template(subject_template).render(date_query=date_query)
+subject = Template(subject_template).render(date_query=date_query, date_query_start=date_query_start)
 
 # Send the email
 send_html_email_gmail_api(service, 'report@goyoyo.ai', to_emails, cc_emails, subject, email_content, attachments=[(f"BS_GMS_GRP_{date_query}.csv", csv_bytes, "text", "csv")] )

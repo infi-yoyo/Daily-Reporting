@@ -286,23 +286,7 @@ def create_connection():
 # Create connection
 connection = create_connection()
 
-cc_emails = ["prakhar@goyoyo.ai", "nikhil@goyoyo.ai", "harshal@goyoyo.ai", "adarsh@goyoyo.ai", "rohan@goyoyo.ai", "pranet@goyoyo.ai"]
 
-
-to_emails = ['nikhil.sachdeva@bluestone.com',
- 'jeevan.babyloni@bluestone.com',
- 'chaitanya.raheja@bluestone.com',
- 'parth.tyagi@bluestone.com',
- 'gaurav.sachdeva@bluestone.com',
- 'ansh.gupta@bluestone.com',
- 'archisha.chandna@bluestone.com',
- 'harleen.valechani@bluestone.com',
- 'harshul.devarchana@bluestone.com',
- 'mudita.gupta@bluestone.com',
- 'anubha.rustagi@bluestone.com',
- 'urvi.haldipur@bluestone.com',
- 'aditya.mittal@bluestone.com',
- 'kshitij.arora@bluestone.com']
 
 template = """
 
@@ -393,19 +377,6 @@ template = """
 
 """
 
-# Set the date as current date - 1
-date_query = (datetime.now() - pd.Timedelta(days=1)).strftime('%Y-%m-%d')
-#date_query = pd.to_datetime('2025-11-03').strftime('%Y-%m-%d')
-
-date_query_dt = datetime.strptime(date_query, "%Y-%m-%d")
-today = datetime.now()
-start_of_month = date_query_dt.replace(day=1)
-start_date_month = start_of_month.strftime('%Y-%m-%d')
-date_2_days_ago = today - pd.Timedelta(days=2)
-start_of_week = date_2_days_ago - pd.Timedelta(days=date_2_days_ago.weekday())
-end_of_week = start_of_week + pd.Timedelta(days=6)
-start_date_week = start_of_week.strftime('%Y-%m-%d')
-end_date_week = end_of_week.strftime('%Y-%m-%d')
 
 
 # ---------- USER CONFIG ----------
@@ -423,7 +394,19 @@ except Exception as exc:
     print("Error:", exc)
 
 
-# Check if the connection is still open
+date_query = pd.to_datetime('2025-12-04').strftime('%Y-%m-%d')
+
+date_query_dt = datetime.strptime(date_query, "%Y-%m-%d")
+today = datetime.now()
+start_of_month = date_query_dt.replace(day=1)
+start_date_month = start_of_month.strftime('%Y-%m-%d')
+weekday_idx = date_query_dt.weekday()
+start_of_week = date_query_dt - pd.Timedelta(days=weekday_idx)
+end_of_week = start_of_week + pd.Timedelta(days=6)
+start_date_week = start_of_week.strftime('%Y-%m-%d')
+end_date_week = end_of_week.strftime('%Y-%m-%d')
+
+
 if connection.closed == 0:
     cursor = connection.cursor()
 
@@ -514,8 +497,54 @@ except Exception as e:
     connection.rollback()  # Rollback the transaction if an error occurs
 
 
+
+query2 = f"""
+
+    SELECT
+    upper(b.employee_id) as employee_id,
+    TO_CHAR(SUM(a.duration::interval), 'HH24:MI:SS') AS "Recorded Duration MTD",
+    COUNT(DISTINCT a.date) AS "Day Data Received",
+    round(SUM(
+        CASE 
+            WHEN a.duration IS NOT NULL
+                 AND (CAST(a.speech_duration AS numeric) / EXTRACT(EPOCH FROM a.duration::interval) > 1
+                 OR CAST(a.speech_duration AS numeric) / EXTRACT(EPOCH FROM a.duration::interval) <= 0.1)
+            THEN 1
+            ELSE 0
+        END
+    )::numeric / COUNT(a.id) * 100,1) AS "Blank Files % (MTD)"
+    FROM audio_file AS a
+    LEFT JOIN sales_person AS b ON a.sales_person_id = b.id
+    WHERE a.path LIKE '%bluestone%'
+    AND a.date BETWEEN date_trunc('month', date '{date_query}') AND '{date_query}'
+    GROUP BY 1;
+
+    
+"""
+
+# Print the query to see the actual SQL string
+#print(f"Executing SQL Query:\n{query1}")
+
+try:
+    cursor.execute(query2)
+    
+    # Fetch the data
+    rows = cursor.fetchall()
+    
+    # Extract column names
+    column_names = [desc[0] for desc in cursor.description]
+    # Create the DataFrame using data and column names
+    df_mtd = pd.DataFrame(rows, columns=column_names)
+    
+except Exception as e:
+    print(f"Error encountered: {e}")
+    connection.rollback()  # Rollback the transaction if an error occurs
+
+
 finally:
     cursor.close()
+
+
 
 df['Shift Duration'] = (pd.to_timedelta(df['OutTime']) - pd.to_timedelta(df['InTime']) - pd.Timedelta(hours=1, minutes=30)).apply(lambda x: '9:30:00' if pd.isna(x) or x.total_seconds() < 0 else str(x).split(' ')[-1])
 df1 = df1.merge(df[['UserID','Shift Duration']], how='left',left_on=['Employee ID'], right_on= ['UserID']).drop(columns='UserID')
@@ -549,7 +578,31 @@ df1['Device Active adherence (%)'] = np.where(
     )
 )
 
-df1 = df1[['ABM', 'Store',	'Staff Name', 'Device', 'Employee ID', 'Same Day Transfer', 'Week off/ OOO', 'Total Files',	'Valid Files', 'Blank Files', 'Blank Files (%)','Recorded Duration', 'Shift Duration',  'Device Active adherence (%)']]
+df1 = df1.merge(df_mtd, how = 'left', left_on = 'Employee ID', right_on = 'employee_id').drop(columns = 'employee_id')
+
+day_expected = pd.Timedelta(hours=9, minutes=30)
+
+df1['Device Active adherence (%) (MTD)'] = np.where(
+    
+    (pd.to_timedelta(df1['Recorded Duration MTD'], errors='coerce') > pd.Timedelta(0)),
+    (pd.to_timedelta(df1['Recorded Duration MTD'], errors='coerce') /
+     pd.to_timedelta(df1['Day Data Received']* day_expected) * 100)
+    .round(1)
+    .astype(str) + '%',
+    np.where(
+        (df1['Week off/ OOO'] == 'Yes'),
+        None,
+        ''
+    )
+)
+
+df1 = df1[['ABM', 'Store',	'Staff Name', 'Device', 'Employee ID', 'Same Day Transfer', 'Week off/ OOO', 'Total Files',	'Valid Files', 'Blank Files', 'Blank Files (%)','Recorded Duration', 'Shift Duration',  'Device Active adherence (%)', 'Recorded Duration MTD', 'Day Data Received','Blank Files % (MTD)', 'Device Active adherence (%) (MTD)']]
+df1['Blank Files % (MTD)'] = np.where(df1['Blank Files % (MTD)'].isna(), None, df1['Blank Files % (MTD)'].astype(str) + '%')
+
+df1 = df1.sort_values(
+    by=['ABM', 'Store', 'Staff Name'],
+    ascending=[True, True, True]
+)
 
 df_valid_1 = df1[df1['Staff Name'].notna()]
 df_valid_2 = df1[df1['Staff Name'].notna() & (df1['Week off/ OOO'] == 'No') ]
@@ -619,6 +672,21 @@ time_logged = (
 
 time_logged['time_logged'] = time_logged['time_logged'].round(0).astype('Int64').astype(str) + '%'
 
+
+time_logged_mtd = (
+    df_valid_1.groupby('ABM', as_index=False)
+       .agg(time_logged_mtd=(
+           'Device Active adherence (%) (MTD)',
+           lambda x: (
+               pd.to_numeric(x.str.replace('%', ''), errors='coerce')
+               .dropna()
+               .mean()
+           )
+       ))
+)
+
+time_logged_mtd['time_logged_mtd'] = time_logged_mtd['time_logged_mtd'].round(0).astype('Int64').astype(str) + '%'
+
 blank_file = (
     df_valid_2.groupby('ABM', as_index=False)
        .agg(blank_file=(
@@ -633,6 +701,20 @@ blank_file = (
 
 blank_file['blank_file'] = blank_file['blank_file'].round(0).astype('Int64').astype(str) + '%'
 
+blank_file_mtd = (
+    df_valid_1.groupby('ABM', as_index=False)
+       .agg(blank_file_mtd=(
+           'Blank Files % (MTD)',
+           lambda x: (
+               pd.to_numeric(x.str.replace('%', ''), errors='coerce')
+               .dropna()
+               .mean()
+           )
+       ))
+)
+
+blank_file_mtd['blank_file_mtd'] = blank_file_mtd['blank_file_mtd'].round(0).astype('Int64').astype(str) + '%'
+
 
 
 
@@ -645,6 +727,8 @@ final = (
     .merge(total_files, on=['ABM'], how='left')
     .merge(time_logged, on=['ABM'], how='left')
     .merge(blank_file, on=['ABM'], how='left')
+    .merge(time_logged_mtd, on=['ABM'], how='left')
+    .merge(blank_file_mtd, on=['ABM'], how='left')
     .fillna(0)
 )
 
@@ -657,7 +741,10 @@ renamed_columns = {
     'same_day_transfer': 'Device Active: Worn / Same Day Data Transfer',
     'total_files': 'Total Files',
     'time_logged': 'Time Log check (%)',
-    'blank_file': 'Blank File (%)'
+    'blank_file': 'Blank File (%)',
+    'time_logged_mtd': 'Time Log check (% MTD)',
+    'blank_file_mtd': 'Blank File (% MTD)'
+    
 }
 
 final = final.rename(columns=renamed_columns)
@@ -677,17 +764,103 @@ totals = pd.DataFrame({
 totals["Time Log check (%)"]= pd.to_numeric(final["Time Log check (%)"].str.replace('%', ''), errors='coerce').mean().round(0).astype('int').astype(str) + '%'
 totals["Blank File (%)"]= pd.to_numeric(final["Blank File (%)"].str.replace('%', ''), errors='coerce').mean().round(0).astype('int').astype(str) + '%'
 
+totals["Time Log check (% MTD)"]= pd.to_numeric(final["Time Log check (% MTD)"].str.replace('%', ''), errors='coerce').mean().round(0).astype('int').astype(str) + '%'
+totals["Blank File (% MTD)"]= pd.to_numeric(final["Blank File (% MTD)"].str.replace('%', ''), errors='coerce').mean().round(0).astype('int').astype(str) + '%'
+
+
 final = pd.concat([final, totals], ignore_index=True)
 final['Total Files'] = final['Total Files'].astype('Int64')
 
-csv_bytes = df_to_csv_bytes(df1)
-date_str = date_query  # e.g., "2025-11-05"
+attachment_paths = [f'C:/Users/adars/Downloads/BS_{date_query}.csv']
 
 
-cols = final.columns
+blank_raw = (
+    df1['Blank Files (%)']
+    .astype(str)
+    .str.replace('%', '', regex=False)
+    .str.strip()
+)
+blank_num = pd.to_numeric(blank_raw, errors='coerce')
+
+adh_raw = (
+    df1['Device Active adherence (%)']
+    .astype(str)
+    .str.replace('%', '', regex=False)
+    .str.strip()
+)
+adh_num = pd.to_numeric(adh_raw, errors='coerce')
+
+blank_flag = (blank_num > 8.0).fillna(False)
+adh_flag   = (adh_num < 85.0).fillna(False)
+
+
+df1['comments'] = ''
+df1.loc[blank_flag, 'comments'] = 'High Blank Files'
+mask_adh = adh_flag
+
+df1.loc[mask_adh, 'comments'] = np.where(
+    df1.loc[mask_adh, 'comments'] == '',
+    'Low Device Adherence',
+    df1.loc[mask_adh, 'comments'] + ', Low Device Adherence'
+)
+
+df1['comments'] = df1['comments'].str.lstrip(', ').str.strip()
+
+df1.to_csv(f"C:/Users/adars/Downloads/BS_{date_query}.csv", index=False)
+
+emails = {
+    "Aditya Mittal": "aditya.mittal@bluestone.com",
+    "Ansh Gupta": "Ansh.Gupta@bluestone.com",
+    "Archisha Chandna": "archisha.chandna@bluestone.com",
+    "Harleen Valechani": "harleen.valechani@bluestone.com",
+    "Harshul": "harshul.devarchana@bluestone.com",
+    "Jeevan Babyloni": "jeevan.babyloni@bluestone.com",
+    "Nikhil Sachdeva": "nikhil.sachdeva@bluestone.com",
+    "Parth Tyagi": "parth.tyagi@bluestone.com",
+    "Urvi Haldipur": "urvi.haldipur@bluestone.com",
+}
+
+
+import pandas as pd
+
+# Work on a copy if you don't want to touch original columns
+df_copy = final.copy()
+
+# Numeric versions of percentage columns
+df_copy['Blank_num'] = df_copy['Blank File (%)'].str.rstrip('%').astype(float)
+df_copy['TimeLog_num'] = df_copy['Time Log check (%)'].str.rstrip('%').astype(float)
+
+# Condition for rows you want to collect
+mask = (
+    (df_copy['Device Active: Worn / Same Day Data Transfer'] / df_copy['Total Device Active'] < 0.1) |
+    (df_copy['Blank_num'] > 8) |
+    (df_copy['TimeLog_num'] < 85)
+)
+
+# 🔹 New dataframe with only the "bad" rows
+flagged_df = df_copy[mask].copy()
+
+flagged_df = flagged_df.drop(columns=['Blank_num', 'TimeLog_num'])
+
+abm_list = flagged_df['ABM'].dropna().unique().tolist()
+
+to_emails = [emails[name] for name in abm_list if name in emails]
+to_emails = [adarsh@goyoyo.ai]
+
+cc_emails = ['kshitij.arora@bluestone.com','mudita.gupta@bluestone.com',
+ 'anubha.rustagi@bluestone.com', 'chaitanya.raheja@bluestone.com', 'harshal@goyoyo.ai',
+ 'nikhil@goyoyo.ai',
+ 'pranet@goyoyo.ai',
+ 'rohan@goyoyo.ai',
+ 'adarsh@goyoyo.ai']
+
+cc_emails = ['adarsh@goyoyo.ai']
+
+
+cols = flagged_df.columns
 rows_html = []
 
-for _, row in final.iterrows():
+for _, row in flagged_df.iterrows():
     cells = []
     for col in cols:
         cell_value = row[col]
@@ -732,6 +905,8 @@ subject = Template(subject_template).render(
     end_date_week = de_f
 )
 
+csv_bytes = df_to_csv_bytes(df1)
+date_str = date_query  # e.g., "2025-11-05"
 send_html_email_gmail_api(service,'reports@goyoyo.ai',to_emails,cc_emails,subject,email_content, attachments=[(f"BS_{date_str}.csv", csv_bytes, "text", "csv")] )
 
    

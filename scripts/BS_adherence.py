@@ -393,18 +393,9 @@ try:
 except Exception as exc:
     print("Error:", exc)
 
-
-date_query = pd.to_datetime('2025-12-04').strftime('%Y-%m-%d')
-
-date_query_dt = datetime.strptime(date_query, "%Y-%m-%d")
-today = datetime.now()
+date_query = (datetime.now() - pd.Timedelta(days=1)).strftime('%Y-%m-%d')
 start_of_month = date_query_dt.replace(day=1)
 start_date_month = start_of_month.strftime('%Y-%m-%d')
-weekday_idx = date_query_dt.weekday()
-start_of_week = date_query_dt - pd.Timedelta(days=weekday_idx)
-end_of_week = start_of_week + pd.Timedelta(days=6)
-start_date_week = start_of_week.strftime('%Y-%m-%d')
-end_date_week = end_of_week.strftime('%Y-%m-%d')
 
 
 if connection.closed == 0:
@@ -906,7 +897,6 @@ subject = Template(subject_template).render(
 )
 
 csv_bytes = df_to_csv_bytes(df1)
-date_str = date_query  # e.g., "2025-11-05"
-send_html_email_gmail_api(service,'reports@goyoyo.ai',to_emails,cc_emails,subject,email_content, attachments=[(f"BS_{date_str}.csv", csv_bytes, "text", "csv")] )
+send_html_email_gmail_api(service,'reports@goyoyo.ai',to_emails,cc_emails,subject,email_content, attachments=[(f"BS_{date_query}.csv", csv_bytes, "text", "csv")] )
 
    

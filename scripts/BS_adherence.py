@@ -521,6 +521,7 @@ template = """
 
 
 date_query = (datetime.now() - pd.Timedelta(days=1)).strftime('%Y-%m-%d')
+date_query_dt = datetime.strptime(date_query, "%Y-%m-%d")
 start_of_month = date_query_dt.replace(day=1)
 start_date_month = start_of_month.strftime('%Y-%m-%d')
 

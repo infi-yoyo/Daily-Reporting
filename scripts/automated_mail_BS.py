@@ -383,7 +383,7 @@ query4 = f"""
   SELECT 
 	g.name as "ABM",
 	c.name as "Store Name",
-    d.name as "Sales Person",
+    d.name as "Staff Name",
     d.email as "E-Mail ID",
     b.date as "Date",
 	count(a.id) as "Total Interaction", 
@@ -426,7 +426,7 @@ finally:
     cursor.close()
 
 df_raw = df_raw.sort_values(
-    by=['ABM', 'Store', 'Staff Name'],
+    by=['ABM', 'Store Name', 'Staff Name'],
     ascending=[True, True, True]
 )
 csv_bytes = df_to_csv_bytes(df_raw)

@@ -941,8 +941,6 @@ df1.loc[mask_adh, 'comments'] = np.where(
 
 df1['comments'] = df1['comments'].str.lstrip(', ').str.strip()
 
-df1.to_csv(f"C:/Users/adars/Downloads/BS_{date_query}.csv", index=False)
-
 emails = {
     "Aditya Mittal": "aditya.mittal@bluestone.com",
     "Ansh Gupta": "Ansh.Gupta@bluestone.com",

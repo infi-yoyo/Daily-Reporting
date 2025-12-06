@@ -978,7 +978,7 @@ flagged_df = flagged_df.drop(columns=['Blank_num', 'TimeLog_num'])
 abm_list = flagged_df['ABM'].dropna().unique().tolist()
 
 to_emails = [emails[name] for name in abm_list if name in emails]
-to_emails = [adarsh@goyoyo.ai]
+
 
 cc_emails = ['kshitij.arora@bluestone.com','mudita.gupta@bluestone.com',
  'anubha.rustagi@bluestone.com', 'chaitanya.raheja@bluestone.com', 'harshal@goyoyo.ai',
@@ -987,7 +987,7 @@ cc_emails = ['kshitij.arora@bluestone.com','mudita.gupta@bluestone.com',
  'rohan@goyoyo.ai',
  'adarsh@goyoyo.ai']
 
-cc_emails = ['adarsh@goyoyo.ai']
+
 
 
 cols = flagged_df.columns

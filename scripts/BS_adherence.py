@@ -891,29 +891,46 @@ renamed_columns = {
 final = final.rename(columns=renamed_columns)
 
 
+# Work on a copy if you don't want to touch original columns
+df_copy = final.copy()
+
+# Numeric versions of percentage columns
+df_copy['Blank_num'] = df_copy['Blank File (%)'].str.rstrip('%').astype(float)
+df_copy['TimeLog_num'] = df_copy['Time Log check (%)'].str.rstrip('%').astype(float)
+
+# Condition for rows you want to collect
+mask = (
+    (df_copy['Device Active: No Worn/ not Transferred'] / df_copy['Total Device Active'] > 0.1) |
+    (df_copy['Blank_num'] > 8) |
+    (df_copy['TimeLog_num'] < 85)
+)
+
+# 🔹 New dataframe with only the "bad" rows
+flagged_df = df_copy[mask].copy()
+
+flagged_df = flagged_df.drop(columns=['Blank_num', 'TimeLog_num'])
+
+
 totals = pd.DataFrame({
     "ABM": ["Grand Total"],
-    "Total Device Count": [final["Total Device Count"].sum()],
-    "Week Off": [final["Week Off"].sum()],
-    "Inactive Device": [final["Inactive Device"].sum()],
-    "Total Device Active": [final["Total Device Active"].sum()],
-    "Device Active: No Worn/ not Transferred": [final["Device Active: No Worn/ not Transferred"].sum()],
-    "Device Active: Worn / Same Day Data Transfer": [final["Device Active: Worn / Same Day Data Transfer"].sum()],
-    "Total Files": [final["Total Files"].sum()]
+    "Total Device Count": [flagged_df["Total Device Count"].sum()],
+    "Week Off": [flagged_df["Week Off"].sum()],
+    "Inactive Device": [flagged_df["Inactive Device"].sum()],
+    "Total Device Active": [flagged_df["Total Device Active"].sum()],
+    "Device Active: No Worn/ not Transferred": [flagged_df["Device Active: No Worn/ not Transferred"].sum()],
+    "Device Active: Worn / Same Day Data Transfer": [flagged_df["Device Active: Worn / Same Day Data Transfer"].sum()],
+    "Total Files": [flagged_df["Total Files"].sum()]
 })
     
-totals["Time Log check (%)"]= pd.to_numeric(final["Time Log check (%)"].str.replace('%', ''), errors='coerce').mean().round(0).astype('int').astype(str) + '%'
-totals["Blank File (%)"]= pd.to_numeric(final["Blank File (%)"].str.replace('%', ''), errors='coerce').mean().round(0).astype('int').astype(str) + '%'
+totals["Time Log check (%)"]= pd.to_numeric(flagged_df["Time Log check (%)"].str.replace('%', ''), errors='coerce').mean().round(0).astype('int').astype(str) + '%'
+totals["Blank File (%)"]= pd.to_numeric(flagged_df["Blank File (%)"].str.replace('%', ''), errors='coerce').mean().round(0).astype('int').astype(str) + '%'
 
-totals["Time Log check (% MTD)"]= pd.to_numeric(final["Time Log check (% MTD)"].str.replace('%', ''), errors='coerce').mean().round(0).astype('int').astype(str) + '%'
-totals["Blank File (% MTD)"]= pd.to_numeric(final["Blank File (% MTD)"].str.replace('%', ''), errors='coerce').mean().round(0).astype('int').astype(str) + '%'
+totals["Time Log check (% MTD)"]= pd.to_numeric(flagged_df["Time Log check (% MTD)"].str.replace('%', ''), errors='coerce').mean().round(0).astype('int').astype(str) + '%'
+totals["Blank File (% MTD)"]= pd.to_numeric(flagged_df["Blank File (% MTD)"].str.replace('%', ''), errors='coerce').mean().round(0).astype('int').astype(str) + '%'
 
 
-final = pd.concat([final, totals], ignore_index=True)
-final['Total Files'] = final['Total Files'].astype('Int64')
-
-attachment_paths = [f'C:/Users/adars/Downloads/BS_{date_query}.csv']
-
+flagged_df = pd.concat([flagged_df, totals], ignore_index=True)
+flagged_df['Total Files'] = flagged_df['Total Files'].astype('Int64')
 
 blank_raw = (
     df1['Blank Files (%)']
@@ -959,28 +976,6 @@ emails = {
     "Urvi Haldipur": "urvi.haldipur@bluestone.com",
 }
 
-
-import pandas as pd
-
-# Work on a copy if you don't want to touch original columns
-df_copy = final.copy()
-
-# Numeric versions of percentage columns
-df_copy['Blank_num'] = df_copy['Blank File (%)'].str.rstrip('%').astype(float)
-df_copy['TimeLog_num'] = df_copy['Time Log check (%)'].str.rstrip('%').astype(float)
-
-# Condition for rows you want to collect
-mask = (
-    (df_copy['Device Active: Worn / Same Day Data Transfer'] / df_copy['Total Device Active'] < 0.1) |
-    (df_copy['Blank_num'] > 8) |
-    (df_copy['TimeLog_num'] < 85)
-)
-
-# 🔹 New dataframe with only the "bad" rows
-flagged_df = df_copy[mask].copy()
-
-flagged_df = flagged_df.drop(columns=['Blank_num', 'TimeLog_num'])
-
 abm_list = flagged_df['ABM'].dropna().unique().tolist()
 
 to_emails = [emails[name] for name in abm_list if name in emails]
@@ -992,9 +987,6 @@ cc_emails = ['kshitij.arora@bluestone.com','mudita.gupta@bluestone.com',
  'pranet@goyoyo.ai',
  'rohan@goyoyo.ai',
  'adarsh@goyoyo.ai']
-
-
-
 
 cols = flagged_df.columns
 rows_html = []

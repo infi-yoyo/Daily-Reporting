@@ -658,8 +658,6 @@ email_content = email_template.render(
     #name=row['name'],  # Replace with dynamic client name if needed
     date=date_query,
     start_date_month=start_date_month,
-    start_date_week = start_date_week,
-    end_date_week = end_date_week,
     html_table1 = html_table1
     )
 

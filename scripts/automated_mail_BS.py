@@ -110,16 +110,15 @@ def service_gmail_api():
 
 service = service_gmail_api()
 
-#cc_emails = ["mudita.gupta@bluestone.com", "gaurav.sachdeva@bluestone.com", "kshitij.arora@bluestone.com", "chaitanya.raheja@bluestone.com", "anubha.rustagi@bluestone.com", "prakhar@goyoyo.ai", "nikhil@goyoyo.ai", "harshal@goyoyo.ai", "adarsh@goyoyo.ai"]
-cc_emails = []
+cc_emails = ["mudita.gupta@bluestone.com", "gaurav.sachdeva@bluestone.com", "kshitij.arora@bluestone.com", "chaitanya.raheja@bluestone.com", "anubha.rustagi@bluestone.com", "prakhar@goyoyo.ai", "nikhil@goyoyo.ai", "harshal@goyoyo.ai", "adarsh@goyoyo.ai"]
+#cc_emails = []
 
-#to_emails = ["aditya.mittal@bluestone.com","Ansh.Gupta@bluestone.com","archisha.chandna@bluestone.com","harleen.valechani@bluestone.com","harshul.devarchana@bluestone.com","jeevan.babyloni@bluestone.com","nikhil.sachdeva@bluestone.com","parth.tyagi@bluestone.com","urvi.haldipur@bluestone.com"]
-    
-to_emails = ["adarsh@goyoyo.ai"]   
+to_emails = ["aditya.mittal@bluestone.com","Ansh.Gupta@bluestone.com","archisha.chandna@bluestone.com","harleen.valechani@bluestone.com","harshul.devarchana@bluestone.com","jeevan.babyloni@bluestone.com","nikhil.sachdeva@bluestone.com","parth.tyagi@bluestone.com","urvi.haldipur@bluestone.com"]    
+#to_emails = ["adarsh@goyoyo.ai"]   
 
 def create_html_message(
     sender,
-    to_emails,                         # <- fix: was `to`
+    to_emails,                         
     subject,
     html_content,
     cc_emails=None,
@@ -231,7 +230,7 @@ connection.rollback()
 
 # Set the date as current date - 2
 date_query = (datetime.now() - pd.Timedelta(days=2)).strftime('%Y-%m-%d')
-date_query_start = (datetime.now() - pd.Timedelta(days=7)).strftime('%Y-%m-%d')
+date_query_start = (datetime.now() - pd.Timedelta(days=8)).strftime('%Y-%m-%d')
 date_query_dt = datetime.strptime(date_query, "%Y-%m-%d")
 today = datetime.now()
 start_of_month = date_query_dt.replace(day=1)
@@ -256,7 +255,8 @@ query1 = f"""
     LEFT JOIN LATERAL jsonb_array_elements(a.sop_new) AS elem1 ON TRUE
     WHERE b.date between '{date_query_start}' and '{date_query}'  
     and cast(b.duration as integer) > 180000
-    group by 1;
+    group by 1
+	order by 1;
     
 """
 

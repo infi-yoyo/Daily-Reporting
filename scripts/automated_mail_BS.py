@@ -232,6 +232,7 @@ connection.rollback()
 # Set the date as current date - 2
 date_query = (datetime.now() - pd.Timedelta(days=2)).strftime('%Y-%m-%d')
 date_query_start = (datetime.now() - pd.Timedelta(days=7)).strftime('%Y-%m-%d')
+date_query_dt = datetime.strptime(date_query, "%Y-%m-%d")
 today = datetime.now()
 start_of_month = date_query_dt.replace(day=1)
 start_date_month = start_of_month.strftime('%Y-%m-%d')

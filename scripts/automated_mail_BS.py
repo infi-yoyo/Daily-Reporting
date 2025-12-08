@@ -507,7 +507,7 @@ template = """
 
     <p>Warm Regards!!</p>
 
-    <p>PFB the GMS pitched and GMS Sold on {{ date }} compared with MTD ( {{start_date_month}} to {{date}})</p>
+    <p>PFB the GMS pitched and GMS Sold from {{date_query_start}} to {{ date }} compared with MTD</p>
     
     {{html_table1}}
 
@@ -657,6 +657,7 @@ email_template = Template(template)
 email_content = email_template.render(
     #name=row['name'],  # Replace with dynamic client name if needed
     date=date_query,
+	date_query_start = date_query_start
     start_date_month=start_date_month,
     html_table1 = html_table1
     )

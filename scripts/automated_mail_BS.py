@@ -115,16 +115,7 @@ cc_emails = []
 
 #to_emails = ["aditya.mittal@bluestone.com","Ansh.Gupta@bluestone.com","archisha.chandna@bluestone.com","harleen.valechani@bluestone.com","harshul.devarchana@bluestone.com","jeevan.babyloni@bluestone.com","nikhil.sachdeva@bluestone.com","parth.tyagi@bluestone.com","urvi.haldipur@bluestone.com"]
     
-to_emails = [adarsh@goyoyo.ai]   
-    
-    
-    
-    
-    
-    
-    
-
-
+to_emails = ["adarsh@goyoyo.ai"]   
 
 def create_html_message(
     sender,

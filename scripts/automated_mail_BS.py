@@ -110,7 +110,7 @@ def service_gmail_api():
 
 service = service_gmail_api()
 
-cc_emails = ["mudita.gupta@bluestone.com", "gaurav.sachdeva@bluestone.com", "kshitij.arora@bluestone.com", "chaitanya.raheja@bluestone.com", "anubha.rustagi@bluestone.com", "prakhar@goyoyo.ai", "nikhil@goyoyo.ai", "harshal@goyoyo.ai", "adarsh@goyoyo.ai"]
+cc_emails = ["mudita.gupta@bluestone.com", "gaurav.sachdeva@bluestone.com", "kshitij.arora@bluestone.com", "chaitanya.raheja@bluestone.com", "anubha.rustagi@bluestone.com", "shubhi.shrivastava@bluestone.com", "prakhar@goyoyo.ai", "nikhil@goyoyo.ai", "harshal@goyoyo.ai", "adarsh@goyoyo.ai"]
 #cc_emails = []
 
 to_emails = ["aditya.mittal@bluestone.com","Ansh.Gupta@bluestone.com","archisha.chandna@bluestone.com","harleen.valechani@bluestone.com","harshul.devarchana@bluestone.com","jeevan.babyloni@bluestone.com","nikhil.sachdeva@bluestone.com","parth.tyagi@bluestone.com","urvi.haldipur@bluestone.com"]    

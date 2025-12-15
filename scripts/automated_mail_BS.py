@@ -110,11 +110,11 @@ def service_gmail_api():
 
 service = service_gmail_api()
 
-cc_emails = ["mudita.gupta@bluestone.com", "gaurav.sachdeva@bluestone.com", "kshitij.arora@bluestone.com", "chaitanya.raheja@bluestone.com", "anubha.rustagi@bluestone.com", "prakhar@goyoyo.ai", "nikhil@goyoyo.ai", "harshal@goyoyo.ai", "adarsh@goyoyo.ai"]
-#cc_emails = []
+#cc_emails = ["mudita.gupta@bluestone.com", "gaurav.sachdeva@bluestone.com", "kshitij.arora@bluestone.com", "chaitanya.raheja@bluestone.com", "anubha.rustagi@bluestone.com", "prakhar@goyoyo.ai", "nikhil@goyoyo.ai", "harshal@goyoyo.ai", "adarsh@goyoyo.ai"]
+cc_emails = []
 
-to_emails = ["aditya.mittal@bluestone.com","Ansh.Gupta@bluestone.com","archisha.chandna@bluestone.com","harleen.valechani@bluestone.com","harshul.devarchana@bluestone.com","jeevan.babyloni@bluestone.com","nikhil.sachdeva@bluestone.com","parth.tyagi@bluestone.com","urvi.haldipur@bluestone.com"]    
-#to_emails = ["adarsh@goyoyo.ai"]   
+#to_emails = ["aditya.mittal@bluestone.com","Ansh.Gupta@bluestone.com","archisha.chandna@bluestone.com","harleen.valechani@bluestone.com","harshul.devarchana@bluestone.com","jeevan.babyloni@bluestone.com","nikhil.sachdeva@bluestone.com","parth.tyagi@bluestone.com","urvi.haldipur@bluestone.com"]    
+to_emails = ["adarsh@goyoyo.ai"]   
 
 def create_html_message(
     sender,
@@ -369,7 +369,6 @@ query4 = f"""
 	c.name as "Store Name",
     d.name as "Staff Name",
     d.email as "E-Mail ID",
-    b.date as "Date",
 	count(a.id) as "Total Interaction", 
 	COALESCE(SUM( (elem1->>'gms_pitched')::int ), 0) AS "GMS Pitched",
 	COALESCE(SUM( (elem1->>'gms_sold')::int ), 0) AS "GMS Sold"
@@ -380,9 +379,9 @@ query4 = f"""
     left join users as g on f.user_id = g.id
     left join sales_person as d on b.sales_person_id = d.id
     LEFT JOIN LATERAL jsonb_array_elements(a.sop_new) AS elem1 ON TRUE
-    WHERE b.date = '{date_query}'  
+    WHERE b.date between '{date_query_start}' and '{date_query}' 
     and cast(b.duration as integer) > 180000
-    group by 1,2,3,4,5;
+    group by 1,2,3,4;
     
 """
 
@@ -596,6 +595,17 @@ sold_vmin  = float(np.nanmin(_sold_vals))  if np.isfinite(np.nanmin(_sold_vals))
 sold_vmax  = float(np.nanmax(_sold_vals))  if np.isfinite(np.nanmax(_sold_vals))  else 100.0
 
 # --- build rows with heatmaps ---------------------------------------------
+
+merged_df = merged_df.rename(columns={
+    "Store Count": "Store Count (WTD)",
+    "Executive Count": "Executive Count (WTD)",
+    "Total Interaction": "Total Interaction (WTD)",
+    "GMS Pitched": "GMS Pitched (WTD)",
+    "GMS Pitched (%)": "GMS Pitched (%) (WTD)",
+    "GMS Sold": "GMS Sold (WTD)",
+    "GMS Sold (%)": "GMS Sold (%) (WTD)",
+})
+
 rows_html = []  # (keep your existing variable)
 cols = merged_df.columns
 for _, row in merged_df.iterrows():

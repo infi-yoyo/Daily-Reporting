@@ -606,6 +606,8 @@ merged_df = merged_df.rename(columns={
     "GMS Sold (%)": "GMS Sold (%) (WTD)",
 })
 
+merged_df = merged_df.sort_values(by='ABM', ascending=True)
+
 rows_html = []  # (keep your existing variable)
 cols = merged_df.columns
 for _, row in merged_df.iterrows():

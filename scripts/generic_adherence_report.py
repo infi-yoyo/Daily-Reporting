@@ -266,17 +266,6 @@ template1 = """
 
 
 brand_details = {
-    "Lenskart": {
-        "to": [
-            "rohit.chawla@lenskart.com",
-            "suren@lenskart.com",
-            "aakash.kathuria@lenskart.in",
-            "faraza@valyoo.in"
-        ],
-        "main_person": "Aakash",
-        "cc": ["harshal@goyoyo.ai", "rohan@goyoyo.ai", "nikhil@goyoyo.ai", "pranet@goyoyo.ai", "adarsh@goyoyo.ai"],
-        "shift_duration": "8:00:00"
-    },
     "Food Square": {
         "to": [
             "mayank@landcraftagro.com",

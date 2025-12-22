@@ -673,7 +673,7 @@ email_content = email_template.render(
     )
 
 
-subject_template = 'BlueStone <> YOYO AI - Actionable Insights (North): {{date_query_start}} - {{ date_query }}'
+subject_template = 'BlueStone <> YOYO AI - Actionable Insights (West): {{date_query_start}} - {{ date_query }}'
 
 # Render the subject using Jinja2
 subject = Template(subject_template).render(date_query=date_query, date_query_start=date_query_start)

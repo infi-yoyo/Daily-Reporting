@@ -110,11 +110,6 @@ def service_gmail_api():
 
 service = service_gmail_api()
 
-cc_emails = ["mudita.gupta@bluestone.com", "gaurav.sachdeva@bluestone.com", "kshitij.arora@bluestone.com", "chaitanya.raheja@bluestone.com", "anubha.rustagi@bluestone.com", "shubhi.shrivastava@bluestone.com", "prakhar@goyoyo.ai", "nikhil@goyoyo.ai", "harshal@goyoyo.ai", "adarsh@goyoyo.ai"]
-#cc_emails = []
-
-to_emails = ["aditya.mittal@bluestone.com","Ansh.Gupta@bluestone.com","archisha.chandna@bluestone.com","harleen.valechani@bluestone.com","harshul.devarchana@bluestone.com","jeevan.babyloni@bluestone.com","nikhil.sachdeva@bluestone.com","parth.tyagi@bluestone.com","urvi.haldipur@bluestone.com"]    
-#to_emails = ["adarsh@goyoyo.ai"]   
 
 def create_html_message(
     sender,
@@ -299,7 +294,7 @@ query2 = f"""
     LEFT JOIN LATERAL jsonb_array_elements(a.sop_new) AS elem1 ON TRUE
     WHERE b.date between '{start_of_month}' and '{date_query}'  
     and cast(b.duration as integer) > 180000
-	c.regional_manager_id = 3
+	and c.regional_manager_id = 3
     group by 1;
     
 """
@@ -340,7 +335,7 @@ query3 = f"""
     left join users as e on d.user_id = e.id
     WHERE a.start_date <= '{date_query}'  and coalesce(a.end_date, DATE '2099-12-31') >= '{date_query}'
     and c.brand_id = 5
-	c.regional_manager_id = 3
+	and c.regional_manager_id = 3
     group by 1;
     
 """
@@ -384,7 +379,7 @@ query4 = f"""
     LEFT JOIN LATERAL jsonb_array_elements(a.sop_new) AS elem1 ON TRUE
     WHERE b.date between '{date_query_start}' and '{date_query}' 
     and cast(b.duration as integer) > 180000
-	c.regional_manager_id = 3
+	and c.regional_manager_id = 3
     group by 1,2,3,4;
     
 """
@@ -678,10 +673,16 @@ email_content = email_template.render(
     )
 
 
-subject_template = 'BlueStone <> YOYO AI - Actionable Insights: {{date_query_start}} - {{ date_query }}'
+subject_template = 'BlueStone <> YOYO AI - Actionable Insights (North): {{date_query_start}} - {{ date_query }}'
 
 # Render the subject using Jinja2
 subject = Template(subject_template).render(date_query=date_query, date_query_start=date_query_start)
+
+#cc_emails = ["mudita.gupta@bluestone.com", "gaurav.sachdeva@bluestone.com", "kshitij.arora@bluestone.com", "chaitanya.raheja@bluestone.com", "anubha.rustagi@bluestone.com", "shubhi.shrivastava@bluestone.com", "prakhar@goyoyo.ai", "nikhil@goyoyo.ai", "harshal@goyoyo.ai", "adarsh@goyoyo.ai"]
+cc_emails = []
+
+#to_emails = ["aditya.mittal@bluestone.com","Ansh.Gupta@bluestone.com","archisha.chandna@bluestone.com","harleen.valechani@bluestone.com","harshul.devarchana@bluestone.com","jeevan.babyloni@bluestone.com","nikhil.sachdeva@bluestone.com","parth.tyagi@bluestone.com","urvi.haldipur@bluestone.com"]    
+to_emails = ["adarsh@goyoyo.ai"]   
 
 # Send the email
 send_html_email_gmail_api(service, 'report@goyoyo.ai', to_emails, cc_emails, subject, email_content, attachments=[(f"BS_GMS_GRP_{date_query}.csv", csv_bytes, "text", "csv")] )

@@ -255,6 +255,7 @@ query1 = f"""
     LEFT JOIN LATERAL jsonb_array_elements(a.sop_new) AS elem1 ON TRUE
     WHERE b.date between '{date_query_start}' and '{date_query}'  
     and cast(b.duration as integer) > 180000
+	and c.regional_manager_id = 3
     group by 1
 	order by 1;
     
@@ -298,6 +299,7 @@ query2 = f"""
     LEFT JOIN LATERAL jsonb_array_elements(a.sop_new) AS elem1 ON TRUE
     WHERE b.date between '{start_of_month}' and '{date_query}'  
     and cast(b.duration as integer) > 180000
+	c.regional_manager_id = 3
     group by 1;
     
 """
@@ -338,6 +340,7 @@ query3 = f"""
     left join users as e on d.user_id = e.id
     WHERE a.start_date <= '{date_query}'  and coalesce(a.end_date, DATE '2099-12-31') >= '{date_query}'
     and c.brand_id = 5
+	c.regional_manager_id = 3
     group by 1;
     
 """
@@ -381,6 +384,7 @@ query4 = f"""
     LEFT JOIN LATERAL jsonb_array_elements(a.sop_new) AS elem1 ON TRUE
     WHERE b.date between '{date_query_start}' and '{date_query}' 
     and cast(b.duration as integer) > 180000
+	c.regional_manager_id = 3
     group by 1,2,3,4;
     
 """

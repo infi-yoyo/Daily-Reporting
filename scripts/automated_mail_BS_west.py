@@ -844,10 +844,10 @@ subject = Template(subject_template).render(date_query=date_query, date_query_st
 
 cc_emails = ['mitul.malhotra@bluestone.com','mudita.gupta@bluestone.com','Ayush.mishra@bluestone.com', 'Raveenkaur.pardal@bluestone.com', 'sachin.dave@bluestone.com', 'harshal@goyoyo.ai','nikhil@goyoyo.ai','pranet@goyoyo.ai','rohan@goyoyo.ai','adarsh@goyoyo.ai']
 
-cc_emails = []
+#cc_emails = []
 
 to_emails = ["arafat.ahmed@bluestone.com","rohan.sharma1@bluestone.com","naman.modi@bluestone.com","ashwini.sutar1@bluestone.com","shruti.pantode@bluestone.com"]    
-to_emails = ["adarsh@goyoyo.ai"]   
+#to_emails = ["adarsh@goyoyo.ai"]   
 
 # Send the email
 send_html_email_gmail_api(service, 'report@goyoyo.ai', to_emails, cc_emails, subject, email_content, attachments=[(f"BS_GMS_GRP_{date_query}.csv", csv_bytes, "text", "csv"), (f"BS_GMS_GRP_effectiveness_{date_query}.csv", csv_bytes_2, "text", "csv")])

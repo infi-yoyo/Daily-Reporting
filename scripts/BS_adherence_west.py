@@ -1188,8 +1188,8 @@ subject = Template(subject_template).render(
     end_date_week = de_f
 )
 
-to_emails = ['adarsh@goyoyo.ai']
-cc_emails = ['adarsh@goyoyo.ai']
+#to_emails = ['adarsh@goyoyo.ai']
+#cc_emails = ['adarsh@goyoyo.ai']
 
 
 

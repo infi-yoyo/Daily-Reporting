@@ -424,7 +424,7 @@ query5 = f"""
     left join users as g on f.user_id = g.id
     left join sales_person as d on b.sales_person_id = d.id
     LEFT JOIN LATERAL jsonb_array_elements(a.sop_new) AS elem1 ON TRUE
-    WHERE b.date = '{date_query}'  
+    WHERE b.date between '{date_query_start}' and '{date_query}' 
     and cast(b.duration as integer) > 180000
     and c.regional_manager_id = 3
     

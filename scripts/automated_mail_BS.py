@@ -842,10 +842,10 @@ subject_template = 'BlueStone <> YOYO AI - Actionable Insights (North): {{date_q
 subject = Template(subject_template).render(date_query=date_query, date_query_start=date_query_start)
 
 cc_emails = ["mudita.gupta@bluestone.com", "gaurav.sachdeva@bluestone.com", "kshitij.arora@bluestone.com", "chaitanya.raheja@bluestone.com", "anubha.rustagi@bluestone.com", "shubhi.shrivastava@bluestone.com", "prakhar@goyoyo.ai", "nikhil@goyoyo.ai", "harshal@goyoyo.ai", "adarsh@goyoyo.ai"]
-cc_emails = []
+#cc_emails = []
 
 to_emails = ["aditya.mittal@bluestone.com","Ansh.Gupta@bluestone.com","archisha.chandna@bluestone.com","harleen.valechani@bluestone.com","harshul.devarchana@bluestone.com","jeevan.babyloni@bluestone.com","nikhil.sachdeva@bluestone.com","parth.tyagi@bluestone.com","urvi.haldipur@bluestone.com"]    
-to_emails = ["adarsh@goyoyo.ai"]   
+#to_emails = ["adarsh@goyoyo.ai"]   
 
 # Send the email
 send_html_email_gmail_api(service, 'report@goyoyo.ai', to_emails, cc_emails, subject, email_content, attachments=[(f"BS_GMS_GRP_{date_query}.csv", csv_bytes, "text", "csv"), (f"BS_GMS_GRP_effectiveness_{date_query}.csv", csv_bytes_2, "text", "csv")] )

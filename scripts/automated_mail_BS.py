@@ -848,4 +848,4 @@ to_emails = ["aditya.mittal@bluestone.com","Ansh.Gupta@bluestone.com","archisha.
 to_emails = ["adarsh@goyoyo.ai"]   
 
 # Send the email
-send_html_email_gmail_api(service, 'report@goyoyo.ai', to_emails, cc_emails, subject, email_content, attachments=[(f"BS_GMS_GRP_{date_query}.csv", csv_bytes, "text/csv"), (f"BS_GMS_GRP_effectiveness_{date_query}.csv", csv_bytes_2, "text/csv")] )
+send_html_email_gmail_api(service, 'report@goyoyo.ai', to_emails, cc_emails, subject, email_content, attachments=[(f"BS_GMS_GRP_{date_query}.csv", csv_bytes, "text", "csv"), (f"BS_GMS_GRP_effectiveness_{date_query}.csv", csv_bytes_2, "text", "csv")] )

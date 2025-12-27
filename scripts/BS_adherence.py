@@ -611,19 +611,6 @@ template = """
 </html>
 
 """
-
-date_query = (datetime.now() - pd.Timedelta(days=1)).strftime('%Y-%m-%d')
-date_query_dt = datetime.strptime(date_query, "%Y-%m-%d")
-today = datetime.now()
-start_of_month = date_query_dt.replace(day=1)
-start_date_month = start_of_month.strftime('%Y-%m-%d')
-weekday_idx = date_query_dt.weekday()
-start_of_week = date_query_dt - pd.Timedelta(days=weekday_idx)
-end_of_week = start_of_week + pd.Timedelta(days=6)
-start_date_week = start_of_week.strftime('%Y-%m-%d')
-end_date_week = end_of_week.strftime('%Y-%m-%d')
-
-
 # Set the date as current date - 1
 #date_query = (datetime.now() - pd.Timedelta(days=7)).strftime('%Y-%m-%d')
 date_query = pd.to_datetime('2025-12-14').strftime('%Y-%m-%d')

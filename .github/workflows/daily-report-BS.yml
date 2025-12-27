@@ -2,8 +2,8 @@ name: Daily Bluestone Report
 
 on:
   schedule:
-    # Runs daily at 06:00 AM UTC (11:30 AM IST)
-    - cron: '0 6 * * 1'
+    # Runs daily at 06:00 AM UTC (10:30 AM IST)
+    - cron: '0 5 * * 1'
   workflow_dispatch:  # Allows manual triggering
 
 jobs:

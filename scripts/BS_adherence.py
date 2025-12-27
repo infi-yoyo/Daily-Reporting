@@ -658,8 +658,6 @@ except Exception as exc:
 agg_wtd = aggregate_user_durations(df_wtd)
 agg_mtd = aggregate_user_durations(df_mtd)
 
-
-
 # Check if the connection is still open
 if connection.closed == 0:
     cursor = connection.cursor()

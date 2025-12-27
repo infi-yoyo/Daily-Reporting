@@ -623,10 +623,10 @@ template = """
 
 """
 # Set the date as current date - 1
-#date_query = (datetime.now() - pd.Timedelta(days=7)).strftime('%Y-%m-%d')
-date_query = pd.to_datetime('2025-12-14').strftime('%Y-%m-%d')
-#date_query_2 = (datetime.now() - pd.Timedelta(days=1)).strftime('%Y-%m-%d')
-date_query_2 = pd.to_datetime('2025-12-20').strftime('%Y-%m-%d')
+date_query = (datetime.now() - pd.Timedelta(days=7)).strftime('%Y-%m-%d')
+#date_query = pd.to_datetime('2025-12-14').strftime('%Y-%m-%d')
+date_query_2 = (datetime.now() - pd.Timedelta(days=1)).strftime('%Y-%m-%d')
+#date_query_2 = pd.to_datetime('2025-12-20').strftime('%Y-%m-%d')
 
 date_query_dt = datetime.strptime(date_query, "%Y-%m-%d")
 date_query_dt_2 = datetime.strptime(date_query_2, "%Y-%m-%d")

@@ -121,82 +121,16 @@ def service_gmail_api():
 
 service = service_gmail_api()
 
-def create_html_message(
-    sender,
-    to_emails,                         # <- fix: was `to`
-    subject,
-    html_content,
-    cc_emails=None,
-    attachment_paths=None,             # optional: disk files
-    attachments=None                   # optional: in-memory [(filename, bytes, mime_main, mime_sub)]
-):
-    """Create a Gmail API message with HTML + optional attachments (paths or in-memory)."""
-    cc_emails = cc_emails or []
-    attachment_paths = attachment_paths or []
-    attachments = attachments or []
-
-    # multipart/mixed container (for attachments); HTML body can be directly attached
-    message = MIMEMultipart('mixed')
-    message['from'] = sender
-    message['to'] = ', '.join(to_emails)
-    if cc_emails:
-        message['cc'] = ', '.join(cc_emails)
-    message['subject'] = subject
-
-    # HTML body
-    message.attach(MIMEText(html_content, 'html', 'utf-8'))
-
-    # File-path attachments
-    for path in attachment_paths:
-        if not os.path.exists(path):
-            print(f"⚠️ File not found, skipping: {path}")
-            continue
-        with open(path, 'rb') as f:
-            payload = f.read()
-        part = MIMEBase('application', 'octet-stream')
-        part.set_payload(payload)
-        encoders.encode_base64(part)
-        part.add_header('Content-Disposition', f'attachment; filename="{os.path.basename(path)}"')
-        message.attach(part)
-
-    # In-memory attachments
-    for filename, blob, mime_main, mime_sub in attachments:
-        part = MIMEBase(mime_main, mime_sub)
-        part.set_payload(blob)
-        encoders.encode_base64(part)
-        part.add_header('Content-Disposition', f'attachment; filename="{filename}"')
-        # Add a Content-Type header for clarity (especially for CSV)
-        part.add_header('Content-Type', f'{mime_main}/{mime_sub}; name="{filename}"')
-        message.attach(part)
-
-    raw_message = base64.urlsafe_b64encode(message.as_bytes()).decode('utf-8')
-    return {'raw': raw_message}
-
-def send_html_email_gmail_api(service, sender_email, to_emails, cc_emails, subject, html_content,
-                              attachment_paths=None, attachments=None):
-    """Send HTML email using Gmail API."""
-    message = create_html_message(
-        sender_email, to_emails, subject, html_content, cc_emails,
-        attachment_paths=attachment_paths, attachments=attachments
-    )
-    try:
-        return service.users().messages().send(userId='me', body=message).execute()
-    except Exception as e:
-        print(f'An error occurred: {e}')
-        return None
-
 def find_message_id_for_sender_on_date(service, sender_email: str, date_str: str) -> Optional[str]:
    
-    # --- define date range dynamically ---
-    # Example: fetch mails for yesterday
-    today = dt.date.today()
-    target_date = today - dt.timedelta(days=0)   # change to 0 if you want "today"
+    target_date = dt.datetime.strptime(date_str, "%Y-%m-%d").date()
     next_day = target_date + dt.timedelta(days=1)
-
-    # Gmail query: from specific sender, exact date window
-    # after: includes >= date, before: excludes < next_day
-    q = f'from:{sender_email} after:{target_date.isoformat()} before:{next_day.isoformat()}'
-
+    
+    # Gmail query: from specific sender on exact date
+    # after:date includes that date, before:next_day excludes next day (so only target date matches)
+    q = f'from:{sender_email} after:{target_date.strftime("%Y/%m/%d")} before:{next_day.strftime("%Y/%m/%d")}'
+    
+    print(f"Searching with query: {q}")  # Debug output
     results = service.users().messages().list(userId="me", q=q, maxResults=10).execute()
     messages = results.get("messages", [])
     if not messages:
@@ -294,6 +228,54 @@ def download_csv_from_sender_on_date(sender_email: str, start_date_str: str, end
     
     return master_df
 
+def create_html_message(sender, to, subject, html_content, cc_emails, attachment_paths=None):
+    """Create a message with HTML content for Gmail API."""
+    
+    # Create multipart message
+    message = MIMEMultipart('mixed')
+    message['to'] = ', '.join(to_emails)
+    message['from'] = sender
+    message['cc'] = ', '.join(cc_emails)
+    message['subject'] = subject
+    
+    # Create HTML part - this is crucial for formatting
+    html_part = MIMEText(html_content, 'html', 'utf-8')
+    message.attach(html_part)
+
+    if attachment_paths:
+        for path in attachment_paths:
+            if not os.path.exists(path):
+                print(f"⚠️ File not found, skipping: {path}")
+                continue
+            with open(path, 'rb') as f:
+                part = MIMEBase('application', 'octet-stream')
+                part.set_payload(f.read())
+            encoders.encode_base64(part)
+            part.add_header('Content-Disposition', f'attachment; filename="{os.path.basename(path)}"')
+            message.attach(part)
+
+    
+    # Encode message
+    raw_message = base64.urlsafe_b64encode(message.as_bytes()).decode('utf-8')
+    
+    return {'raw': raw_message}
+
+def send_html_email_gmail_api(service, sender_email, to_emails, cc_emails, subject, html_content, attachment_paths=None):
+    """Send HTML email using Gmail API."""
+    
+    message = create_html_message(sender_email, to_emails, subject, html_content, cc_emails, attachment_paths)
+    
+    try:
+        sent_message = service.users().messages().send(
+            userId='me', 
+            body=message
+        ).execute()
+        print(f'Message Id: {sent_message["id"]}')
+        return sent_message
+    except Exception as error:
+        print(f'An error occurred: {error}')
+        return None
+    
 
 def aggregate_user_durations(df):
     """
@@ -359,7 +341,6 @@ def aggregate_user_durations(df):
 
 def ordinal(n):
     return "%d%s" % (n, "tsnrhtdd"[(n//10%10!=1)*(n%10<4)*n%10::4])
-
 
 def df_to_csv_bytes(df: pd.DataFrame) -> bytes:
     buf = io.BytesIO()

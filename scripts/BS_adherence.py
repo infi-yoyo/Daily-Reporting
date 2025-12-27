@@ -228,36 +228,56 @@ def download_csv_from_sender_on_date(sender_email: str, start_date_str: str, end
     
     return master_df
 
-def create_html_message(sender, to, subject, html_content, cc_emails, attachment_paths=None):
-    """Create a message with HTML content for Gmail API."""
-    
-    # Create multipart message
+def create_html_message(
+    sender,
+    to_emails,                         
+    subject,
+    html_content,
+    cc_emails=None,
+    attachment_paths=None,             # optional: disk files
+    attachments=None                   # optional: in-memory [(filename, bytes, mime_main, mime_sub)]
+):
+    """Create a Gmail API message with HTML + optional attachments (paths or in-memory)."""
+    cc_emails = cc_emails or []
+    attachment_paths = attachment_paths or []
+    attachments = attachments or []
+
+    # multipart/mixed container (for attachments); HTML body can be directly attached
     message = MIMEMultipart('mixed')
-    message['to'] = ', '.join(to_emails)
     message['from'] = sender
-    message['cc'] = ', '.join(cc_emails)
+    message['to'] = ', '.join(to_emails)
+    if cc_emails:
+        message['cc'] = ', '.join(cc_emails)
     message['subject'] = subject
-    
-    # Create HTML part - this is crucial for formatting
-    html_part = MIMEText(html_content, 'html', 'utf-8')
-    message.attach(html_part)
 
-    if attachment_paths:
-        for path in attachment_paths:
-            if not os.path.exists(path):
-                print(f"⚠️ File not found, skipping: {path}")
-                continue
-            with open(path, 'rb') as f:
-                part = MIMEBase('application', 'octet-stream')
-                part.set_payload(f.read())
-            encoders.encode_base64(part)
-            part.add_header('Content-Disposition', f'attachment; filename="{os.path.basename(path)}"')
-            message.attach(part)
+    # HTML body
+    message.attach(MIMEText(html_content, 'html', 'utf-8'))
 
-    
-    # Encode message
+    # File-path attachments
+
+    for path in attachment_paths:
+        if not os.path.exists(path):
+            print(f"⚠️ File not found, skipping: {path}")
+            continue
+        with open(path, 'rb') as f:
+            payload = f.read()
+        part = MIMEBase('application', 'octet-stream')
+        part.set_payload(payload)
+        encoders.encode_base64(part)
+        part.add_header('Content-Disposition', f'attachment; filename="{os.path.basename(path)}"')
+        message.attach(part)
+
+    # In-memory attachments
+    for filename, blob, mime_main, mime_sub in attachments:
+        part = MIMEBase(mime_main, mime_sub)
+        part.set_payload(blob)
+        encoders.encode_base64(part)
+        part.add_header('Content-Disposition', f'attachment; filename="{filename}"')
+        # Add a Content-Type header for clarity (especially for CSV)
+        part.add_header('Content-Type', f'{mime_main}/{mime_sub}; name="{filename}"')
+        message.attach(part)
+
     raw_message = base64.urlsafe_b64encode(message.as_bytes()).decode('utf-8')
-    
     return {'raw': raw_message}
 
 

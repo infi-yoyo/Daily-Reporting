@@ -1,5 +1,6 @@
-# %%
+# =========================
 # Standard Library
+# =========================
 import os
 import io
 import base64
@@ -7,27 +8,36 @@ import datetime as dt
 from datetime import datetime, timedelta
 from typing import Optional
 
+# =========================
 # Third-Party Libraries
+# =========================
 import numpy as np
 import pandas as pd
 from jinja2 import Template
 
+# =========================
 # Google API Libraries
+# =========================
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 
+# =========================
 # Email Libraries
+# =========================
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from email.mime.base import MIMEBase
 from email import encoders
 
+# =========================
 # Database
+# =========================
 import psycopg2
 from psycopg2 import OperationalError
+
 
 
 

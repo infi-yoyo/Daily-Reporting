@@ -260,20 +260,20 @@ def create_html_message(sender, to, subject, html_content, cc_emails, attachment
     
     return {'raw': raw_message}
 
-def send_html_email_gmail_api(service, sender_email, to_emails, cc_emails, subject, html_content, attachment_paths=None):
+
+
+
+def send_html_email_gmail_api(service, sender_email, to_emails, cc_emails, subject, html_content,
+                              attachment_paths=None, attachments=None):
     """Send HTML email using Gmail API."""
-    
-    message = create_html_message(sender_email, to_emails, subject, html_content, cc_emails, attachment_paths)
-    
+    message = create_html_message(
+        sender_email, to_emails, subject, html_content, cc_emails,
+        attachment_paths=attachment_paths, attachments=attachments
+    )
     try:
-        sent_message = service.users().messages().send(
-            userId='me', 
-            body=message
-        ).execute()
-        print(f'Message Id: {sent_message["id"]}')
-        return sent_message
-    except Exception as error:
-        print(f'An error occurred: {error}')
+        return service.users().messages().send(userId='me', body=message).execute()
+    except Exception as e:
+        print(f'An error occurred: {e}')
         return None
     
 

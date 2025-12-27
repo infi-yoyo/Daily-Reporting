@@ -558,15 +558,6 @@ pct_cols = [
 df_gms_pitched["GMS_pitched"] = df_gms_pitched["GMS_pitched"].astype(int)
 df_gms_pitched_sold["GMS_sold"] = df_gms_pitched_sold["GMS_sold"].astype(int)
 
-df_effectiveness.to_csv(f"C:/Users/adars/Downloads/BS_{date_query}_gms_effectiveness.csv", index=False)
-df_raw.to_csv(f"C:/Users/adars/Downloads/BS_{date_query}_raw.csv", index=False)
-
-attachment_paths = [
-    f'C:/Users/adars/Downloads/BS_{date_query}_raw.csv',
-    f'C:/Users/adars/Downloads/BS_{date_query}_gms_effectiveness.csv'
-]
-
-
 totals = pd.DataFrame({
     "ABM": ["Grand Total"],
     "GMS_pitched": [df_gms_pitched["GMS_pitched"].sum()],

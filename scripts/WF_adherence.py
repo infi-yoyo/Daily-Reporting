@@ -216,7 +216,9 @@ to_emails = [
     "karthik.s1@wakefit.co",
 	"ambarish.varadan@wakefit.co",
 	"zeeshanali.i@wakefit.co",
-	"saikiran.m@wakefit.co"
+	"saikiran.m@wakefit.co",
+	"nilesh.keshri@wakefit.co",
+	"aveenash.jayaraman@wakefit.co"
 ]
 
 

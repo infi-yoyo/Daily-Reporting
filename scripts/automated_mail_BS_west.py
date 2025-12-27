@@ -402,6 +402,53 @@ try:
 except Exception as e:
     print(f"Error encountered: {e}")
     connection.rollback()  # Rollback the transaction if an error occurs
+
+query5 = f"""
+
+   SELECT 
+	g.name as "ABM",
+	c.name as "Store Name",
+    d.name as "Sales Person",
+	b.interaction_code as "Interaction Code",
+	elem1->>'gms_pitched' as "GMS Pitched",
+	elem1->>'gms_sold' AS "GMS Sold",
+	elem1->>'gms_monthly_payment' as "Monthly Payment Benefit",
+	elem1->>'gms_redemption_exclusion' AS "Redemption Eligibility & Exclusions",
+	elem1->>'gms_rules_penalties' as "On-time Payment Rules",
+	elem1->>'gms_benefit_stacking' AS "Redemption Flexibility",
+	elem1->>'gms_redemption_flexibility' as "Benefit Stacking"
+    FROM bluestone_interaction_flags as a 
+    LEFT JOIN interaction_processed AS b on a.interaction_id = b.id
+    LEFT JOIN store AS c ON b.store_id = c.id
+    left join area_business_manager as f on c.abm_id = f.id
+    left join users as g on f.user_id = g.id
+    left join sales_person as d on b.sales_person_id = d.id
+    LEFT JOIN LATERAL jsonb_array_elements(a.sop_new) AS elem1 ON TRUE
+    WHERE b.date between '{date_query_start}' and '{date_query}' 
+    and cast(b.duration as integer) > 180000
+    and c.regional_manager_id = 26
+    
+    
+"""
+
+# Print the query to see the actual SQL string
+print(f"Executing SQL Query:\n{query5}")
+
+try:
+    cursor.execute(query5)
+    
+    # Fetch the data
+    rows = cursor.fetchall()
+    
+    # Extract column names
+    column_names = [desc[0] for desc in cursor.description]
+    # Create the DataFrame using data and column names
+    df_effectiveness = pd.DataFrame(rows, columns=column_names)
+    
+    
+except Exception as e:
+    print(f"Error encountered: {e}")
+    connection.rollback()  # Rollback the transaction if an error occurs	
 	
 
 finally:
@@ -411,7 +458,9 @@ df_raw = df_raw.sort_values(
     by=['ABM', 'Store Name', 'Staff Name'],
     ascending=[True, True, True]
 )
+
 csv_bytes = df_to_csv_bytes(df_raw)
+csv_bytes_2 = df_to_csv_bytes(df_effectiveness)
 
 merged_df = df3.merge(df4, on='ABM', how = 'left').merge(df1, on='ABM', how='left')
 merged_df = merged_df.applymap(lambda x: '-' if pd.isna(x) else (int(x) if isinstance(x, (int, float)) and float(x).is_integer() else x))
@@ -441,87 +490,151 @@ merged_df = pd.concat([merged_df, totals], ignore_index=True)
 new_order = ['ABM', 'Total Store Count', 'Total Executive Count', 'MTD GMS Pitched (%)', 'MTD GMS Sold (%)', 'Store Count', 'Executive Count', 'Total Interaction', 'GMS Pitched', 'GMS Pitched (%)', 'GMS Sold', 'GMS Sold (%)']
 merged_df = merged_df[new_order]
 
+cols = [
+    'GMS Pitched',
+    'GMS Sold',
+    'Monthly Payment Benefit',
+    'Redemption Eligibility & Exclusions',
+    'On-time Payment Rules',
+    'Redemption Flexibility',
+    'Benefit Stacking'
+]
+
+
+all_abms = df_effectiveness['ABM'].unique()
+
+df_effectiveness[cols] = df_effectiveness[cols].apply(pd.to_numeric, errors='coerce').astype('float')
+
+df_gms_pitched = (
+    df_effectiveness
+    .loc[df_effectiveness['GMS Pitched'] == 1]
+    .groupby('ABM', as_index=False)
+    .agg(
+        GMS_pitched=('GMS Pitched',sum),
+        Monthly_Payment_Benefit=('Monthly Payment Benefit', lambda x: round(x.mean() * 100, 2)),
+        Redemption_Eligibility_Exclusions=('Redemption Eligibility & Exclusions', lambda x: round(x.mean() * 100, 2)),
+        On_time_Payment_Rules=('On-time Payment Rules', lambda x: round(x.mean() * 100, 2)),
+        Redemption_Flexibility=('Redemption Flexibility', lambda x: round(x.mean() * 100, 2)),
+        Benefit_Stacking=('Benefit Stacking', lambda x: round(x.mean() * 100, 2))
+    )
+)
+
+df_gms_pitched_sold = (
+    df_effectiveness
+    .loc[(df_effectiveness['GMS Pitched'] == 1) & (df_effectiveness['GMS Sold'] == 1)]
+    .groupby('ABM', as_index=False)
+    .agg(
+        GMS_sold=('GMS Sold',sum),
+        Monthly_Payment_Benefit=('Monthly Payment Benefit', lambda x: round(x.mean() * 100, 2)),
+        Redemption_Eligibility_Exclusions=('Redemption Eligibility & Exclusions', lambda x: round(x.mean() * 100, 2)),
+        On_time_Payment_Rules=('On-time Payment Rules', lambda x: round(x.mean() * 100, 2)),
+        Redemption_Flexibility=('Redemption Flexibility', lambda x: round(x.mean() * 100, 2)),
+        Benefit_Stacking=('Benefit Stacking', lambda x: round(x.mean() * 100, 2))
+    )
+)
+
+df_gms_pitched = df_gms_pitched.set_index('ABM')
+df_gms_pitched_sold = df_gms_pitched_sold.set_index('ABM')
+
+df_gms_pitched = (
+    df_gms_pitched
+    .reindex(all_abms, fill_value=0.0)
+    .reset_index()
+)
+
+df_gms_pitched_sold = (
+    df_gms_pitched_sold
+    .reindex(all_abms, fill_value=0.0)
+    .reset_index()
+)
+
+
+pct_cols = [
+    'Monthly_Payment_Benefit',
+    'Redemption_Eligibility_Exclusions',
+    'On_time_Payment_Rules',
+    'Redemption_Flexibility',
+    'Benefit_Stacking'
+]
+
+df_gms_pitched["GMS_pitched"] = df_gms_pitched["GMS_pitched"].astype(int)
+df_gms_pitched_sold["GMS_sold"] = df_gms_pitched_sold["GMS_sold"].astype(int)
+
+totals = pd.DataFrame({
+    "ABM": ["Grand Total"],
+    "GMS_pitched": [df_gms_pitched["GMS_pitched"].sum()],
+    })
+
+# Calculate percentages based on totals
+totals["Monthly_Payment_Benefit"] = df_gms_pitched["Monthly_Payment_Benefit"].mean().round(1)
+totals["Redemption_Eligibility_Exclusions"] = df_gms_pitched["Redemption_Eligibility_Exclusions"].mean().round(1)
+totals["On_time_Payment_Rules"] = df_gms_pitched["On_time_Payment_Rules"].mean().round(1)
+totals["Redemption_Flexibility"] = df_gms_pitched["Redemption_Flexibility"].mean().round(1)
+totals["Benefit_Stacking"] = df_gms_pitched["Benefit_Stacking"].mean().round(1)
+
+
+
+df_gms_pitched = pd.concat([df_gms_pitched, totals], ignore_index=True)
+
+totals = pd.DataFrame({
+    "ABM": ["Grand Total"],
+    "GMS_sold": [df_gms_pitched_sold["GMS_sold"].sum()]
+    })
+
+# Calculate percentages based on totals
+totals["Monthly_Payment_Benefit"] = df_gms_pitched_sold["Monthly_Payment_Benefit"].mean().round(1)
+totals["Redemption_Eligibility_Exclusions"] = df_gms_pitched_sold["Redemption_Eligibility_Exclusions"].mean().round(1)
+totals["On_time_Payment_Rules"] = df_gms_pitched_sold["On_time_Payment_Rules"].mean().round(1)
+totals["Redemption_Flexibility"] = df_gms_pitched_sold["Redemption_Flexibility"].mean().round(1)
+totals["Benefit_Stacking"] = df_gms_pitched_sold["Benefit_Stacking"].mean().round(1)
+
+
+df_gms_pitched_sold = pd.concat([df_gms_pitched_sold, totals], ignore_index=True)
+
 
 template = """
 
 <html>
-<head>
-    <style>
-         body {
-            font-family: Arial, sans-serif;
-            line-height: 1.6;
-            color: #333;
-            max-width: 1000px;
-            margin: 0 auto;
-            padding: 20px;
-        }
-        
-        tr:nth-child(even) {
-            background-color: #f9f9f9;
-        }
-        
-        tr:hover {
-            background-color: #f0f8ff;
-        }
-        
-        .interaction-codes {
-            font-family: 'Courier New', monospace;
-            font-size: 11px;
-            max-width: 250px;
-        }
-        
-        .code-item {
-            display: inline-block;
-            background-color: #f0f0f0;
-            border: 1px solid #ccc;
-            padding: 2px 6px;
-            margin: 2px;
-            border-radius: 3px;
-            font-size: 10px;
-            white-space: nowrap;
-        }
-        
-        .count {
-            text-align: center;
-            font-weight: bold;
-        }
-        
-        .percentage {
-            text-align: center;
-            font-weight: bold;
-        }
-        
-        .insight {
-            background-color: #e8f4fd;
-            border-left: 4px solid #007acc;
-            padding: 15px;
-            margin: 20px 0;
-            border-radius: 4px;
-        }
-    </style>
-</head>
 <body>
     <p>Hi Bluestone,</p>
 
     <p>Warm Regards!!</p>
 
-    <p>PFB the GMS pitched and GMS Sold from {{date_query_start}} to {{ date }} compared with MTD</p>
+    <h2><p>PFB the GMS pitched and GMS Sold on from {{date_query_start}} to {{ date }} compared with MTD ( {{start_date_month}} to {{date}})</p></h2>
     
     {{html_table1}}
 
-	<p><b> GMS Pitched (%) = (GMS Pitched/ Total Interaction) * 100 </b></p>
+    <p><b> GMS Pitched (%) = (GMS Pitched/ Total Interaction) * 100 </b></p>
     <p><b> GMS Sold (%) = (GMS Sold / GMS Pitched) * 100 </b></p>
+
+    </h2><p>Below is the effectiveness of GMS Pitching and Selling across various parameters when GMS is pitched:</p></h2>
+
+    {{html_table2}}
+
+    <h2><p>Below is the effectiveness of GMS Pitching and Selling across various parameters when GMS is sold:</p></h2>
+
+    {{html_table3}}
+ 
+
 
     <div class="insight">
         <p>You can look for detailed analysis regarding these interactions on the dashboard</p>
         <p><strong>Link to dashboard:</strong> https://pilot.goyoyo.ai/ </p>
     </div>
-    
-    <p><strong>Note:</strong> These customer interactions lasted for more than three minutes.<br>
-    Store Count: Count of stores in which AI has identified interactions for the defined date<br>
-    Executive Count: Count of executives in which AI has identified interactions for the defined date </p>
 
-    <p>Regards,<br>Adarsh.</p>
+    </h2><p><strong>Note:</strong> These customer interactions lasted for more than three minutes.</p></h2>
+
+    <ul>
+        <li><strong>Store Count:</strong> Count of stores in which AI has identified interactions for the defined date</li>
+        <li><strong>Executive Count:</strong> Count of executives in which AI has identified interactions for the defined date</li>
+        <li><strong>Monthly Payment Benefit:</strong> Determine if the salesperson explained that customers pay approximately 10 monthly installments to receive an extra benefit or discount at maturity (e.g., a free installment value or equivalent voucher).</li>
+        <li><strong>Redemption Eligibility & Exclusions:</strong> Determine if the salesperson explained that plans are redeemable for diamond-studded, gemstone-studded, plain gold, preset solitaire, or plain platinum jewelry, but explicitly NOT for coins, loose solitaires, or customized products.</li>
+        <li><strong>On-time Payment Rules:</strong> Determine if the salesperson highlighted that benefits depend on on-time payments and that late or missed payments result in reduced or removed benefits.</li>
+        <li><strong>Redemption Flexibility:</strong> Determine if the salesperson pitched early redemption or maturity flexibility (e.g., GMS redemption possible from the 6th month with proportional discount; GRP gold units accumulating monthly).</li>
+        <li><strong>Benefit Stacking:</strong> Determine if the salesperson emphasized that GMS/GRP allows combining running offers/vouchers, or that GRP allows Birthday vouchers.</li>
+    </ul>
+
+    <p>Regards,<br>YoYo AI.</p>
 </body>
 </html>
 
@@ -662,16 +775,67 @@ html_table1 = (
     + "".join(rows_html) + "</tbody></table>" 
     )
 
+rows_html = []
+cols = df_gms_pitched.columns
+for _, row in df_gms_pitched.iterrows():
+    cells = []
+    for col in cols:  # Loop through ALL columns
+        style = "text-align:center;border:1px solid #000;"
+        cell_value = row[col]
+        if col in pct_cols and not pd.isna(cell_value):
+            cell_value = f"{cell_value:.0f}%"
+        cells.append(f"<td style='{style}'>{cell_value}</td>")
+    
+    rows_html.append("<tr>" + "".join(cells) + "</tr>")
+
+
+
+html_table2 = ( 
+    "<table border='1' cellpadding='6' cellspacing='0' " 
+    "style='border-collapse:collapse;font-family:Arial,sans-serif;font-size:13px;width:100%;'>" 
+    "<thead><tr>" 
+    + "".join([f"<th>{c}</th>" for c in cols]) 
+    + "</tr></thead><tbody>" 
+    + "".join(rows_html) + "</tbody></table>" 
+)
+
+
+rows_html = []
+cols = df_gms_pitched_sold.columns
+for _, row in df_gms_pitched_sold.iterrows():
+    cells = []
+    for col in cols:  # Loop through ALL columns
+        style = "text-align:center;border:1px solid #000;"
+        cell_value = row[col]
+        if col in pct_cols and not pd.isna(cell_value):
+            cell_value = f"{cell_value:.0f}%"
+        cells.append(f"<td style='{style}'>{cell_value}</td>")
+    
+    rows_html.append("<tr>" + "".join(cells) + "</tr>")
+
+
+
+html_table3 = ( 
+    "<table border='1' cellpadding='6' cellspacing='0' " 
+    "style='border-collapse:collapse;font-family:Arial,sans-serif;font-size:13px;width:100%;'>" 
+    "<thead><tr>" 
+    + "".join([f"<th>{c}</th>" for c in cols]) 
+    + "</tr></thead><tbody>" 
+    + "".join(rows_html) + "</tbody></table>" 
+)
+
 
 email_template = Template(template)
 email_content = email_template.render(
     #name=row['name'],  # Replace with dynamic client name if needed
     date=date_query,
-	date_query_start = date_query_start,
-    start_date_month = start_date_month,
-    html_table1 = html_table1
-    )
-
+    start_date_month=start_date_month,
+    #start_date_week = start_date_week,
+    #end_date_week = end_date_week,
+    html_table1 = html_table1,
+    date_query_start = date_query_start,
+    html_table2 = html_table2,
+    html_table3 = html_table3)
 
 subject_template = 'BlueStone <> YOYO AI - Actionable Insights (West): {{date_query_start}} - {{ date_query }}'
 
@@ -680,10 +844,10 @@ subject = Template(subject_template).render(date_query=date_query, date_query_st
 
 cc_emails = ['mitul.malhotra@bluestone.com','mudita.gupta@bluestone.com','Ayush.mishra@bluestone.com', 'Raveenkaur.pardal@bluestone.com', 'sachin.dave@bluestone.com', 'harshal@goyoyo.ai','nikhil@goyoyo.ai','pranet@goyoyo.ai','rohan@goyoyo.ai','adarsh@goyoyo.ai']
 
-#cc_emails = []
+cc_emails = []
 
 to_emails = ["arafat.ahmed@bluestone.com","rohan.sharma1@bluestone.com","naman.modi@bluestone.com","ashwini.sutar1@bluestone.com","shruti.pantode@bluestone.com"]    
-#to_emails = ["adarsh@goyoyo.ai"]   
+to_emails = ["adarsh@goyoyo.ai"]   
 
 # Send the email
-send_html_email_gmail_api(service, 'report@goyoyo.ai', to_emails, cc_emails, subject, email_content, attachments=[(f"BS_GMS_GRP_{date_query}.csv", csv_bytes, "text", "csv")] )
+send_html_email_gmail_api(service, 'report@goyoyo.ai', to_emails, cc_emails, subject, email_content, attachments=[(f"BS_GMS_GRP_{date_query}.csv", csv_bytes, "text", "csv"), (f"BS_GMS_GRP_effectiveness_{date_query}.csv", csv_bytes_2, "text", "csv")])
